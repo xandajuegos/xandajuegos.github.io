@@ -1,0 +1,23 @@
+{
+  "name": "xanda-juegos-api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "API de cuentas y progreso para XandA Juegos (Casino Fortuna)",
+  "main": "src/index.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "db:setup": "node scripts/setup-db.js",
+    "test": "node --test test/api.test.js"
+  },
+  "dependencies": {
+    "express": "^4.22.3",
+    "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "embedded-postgres": "18.4.0-beta.17"
+  }
+}

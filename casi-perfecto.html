@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Casi Perfecto · XandA Juegos</title>
+  <meta name="description" content="Casi Perfecto: construye la torre más alta. Si no le atinas pierdes un pedazo, y si fallas del todo la torre se cae.">
+  <meta name="theme-color" content="#b690b4">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 3l11 6v14l-11 6-11-6V9z' fill='%23ff5a8a'/%3E%3Cpath d='M16 3l11 6-11 6-11-6z' fill='%23ff8fb0'/%3E%3Cpath d='M16 15l11-6v14l-11 6z' fill='%23d93d6c'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body data-page="casi-perfecto">
+  <div id="app-nav"></div>
+
+  <main>
+    <section class="page-hero">
+      <div class="wrap">
+        <div class="reveal">
+          <span class="eyebrow white">Juego de construcción</span>
+          <h1 class="pixel-title">Casi<br>Perfecto</h1>
+          <p class="lead">Construye una torre bloque a bloque. Si no le atinas, pierdes un pedazo; si fallas por completo, ¡se cae toda la torre!</p>
+          <div class="cta-row">
+            <a class="btn btn-pink btn-lg" href="#" data-play>▶ Jugar ahora</a>
+            <a class="btn btn-white btn-lg" href="tienda-casi-perfecto.html">Comprar monedas</a>
+            <a class="btn btn-ghost btn-lg" href="ranking.html?juego=casi-perfecto">Top mundial</a>
+          </div>
+        </div>
+        <div class="stage stage-hero reveal d1" data-model="cityTower" data-s="22" data-opts='{"cy":80}' data-tilt></div>
+      </div>
+      <div class="skyline" data-color="#fff8ef" data-seed="5"></div>
+    </section>
+
+    <section class="sec cream" id="como-se-juega">
+      <div class="wrap">
+        <div class="sec-head center reveal">
+          <span class="eyebrow pink">Cómo se juega</span>
+          <h2 class="h2">Fácil de aprender, difícil de soltar</h2>
+          <p class="lead">Un solo toque es todo lo que necesitas.</p>
+        </div>
+        <div class="grid g3 steps-3">
+          <article class="card step reveal"><h3>Toca para soltar</h3><p>El bloque se desliza de lado a lado. Toca la pantalla en el momento justo para soltarlo sobre la torre.</p></article>
+          <article class="card step reveal d1"><h3>Alinea con cuidado</h3><p>Lo que sobresale del bloque de abajo se corta y cae. Cada fallo deja tu torre un poco más angosta.</p></article>
+          <article class="card step reveal d2"><h3>No falles del todo</h3><p>Si el bloque cae completamente fuera, la torre se desploma y termina la partida. ¡A superar tu récord!</p></article>
+        </div>
+      </div>
+      <div class="skyline" data-color="#efe9ff" data-seed="9"></div>
+    </section>
+
+    <section class="sec lilac" id="mapas">
+      <div class="wrap">
+        <div class="sec-head center reveal">
+          <span class="eyebrow">Mapas</span>
+          <h2 class="h2">Construye en otros mundos</h2>
+          <p class="lead">Cada mapa cambia el paisaje de tu torre. Desbloquéalos con las monedas que ganes o compres.</p>
+        </div>
+        <div class="grid g3" id="maps-grid"></div>
+      </div>
+      <div class="skyline" data-color="#ff5a8a" data-seed="14"></div>
+    </section>
+
+    <section class="sec pink">
+      <div class="wrap center">
+        <div class="reveal">
+          <h2 class="h2" style="max-width:700px;margin-left:auto;margin-right:auto">¿Hasta qué altura puedes llegar?</h2>
+          <p class="lead" style="margin:0 auto 32px;color:#fff">Compite en el top mundial o consigue monedas para desbloquear más mapas.</p>
+          <div class="cta-row" style="justify-content:center">
+            <a class="btn btn-yellow btn-lg" href="ranking.html?juego=casi-perfecto">Ver el top mundial</a>
+            <a class="btn btn-white btn-lg" href="tienda-casi-perfecto.html">Ir a la tienda</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="app-footer"></div>
+
+  <script src="js/cubes.js"></script>
+  <script src="js/models.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/pages.js"></script>
+  <script src="js/ui.js"></script>
+</body>
+</html>

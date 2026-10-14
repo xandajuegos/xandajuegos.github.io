@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Casino Fortuna · XandA Juegos</title>
+  <meta name="description" content="Casino Fortuna: varios juegos de casino, skins de mesa y personajes con estilo de bloques 3D.">
+  <meta name="theme-color" content="#3a2190">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 3l11 6v14l-11 6-11-6V9z' fill='%23ff5a8a'/%3E%3Cpath d='M16 3l11 6-11 6-11-6z' fill='%23ff8fb0'/%3E%3Cpath d='M16 15l11-6v14l-11 6z' fill='%23d93d6c'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body data-page="casino-fortuna">
+  <div id="app-nav"></div>
+
+  <main>
+    <section class="page-hero">
+      <div class="wrap">
+        <div class="reveal">
+          <span class="eyebrow yellow">Juegos de casino</span>
+          <h1 class="pixel-title">Casino<br>Fortuna</h1>
+          <p class="lead">Todo el casino en un solo lugar. Juega varios juegos, personaliza tu mesa con skins y elige a tu personaje favorito.</p>
+          <div class="cta-row">
+            <a class="btn btn-yellow btn-lg" href="#" data-play>▶ Jugar ahora</a>
+            <a class="btn btn-white btn-lg" href="tienda-casino-fortuna.html">Comprar monedas</a>
+            <a class="btn btn-ghost btn-lg" href="ranking.html?juego=casino-fortuna">Top mundial</a>
+          </div>
+        </div>
+        <div class="stage stage-hero reveal d1" data-model="slot" data-s="48" data-opts='{"cy":78}' data-tilt></div>
+      </div>
+      <div class="skyline" data-color="#fff8ef" data-seed="8"></div>
+    </section>
+
+    <section class="sec cream" id="juegos-casino">
+      <div class="wrap">
+        <div class="sec-head center reveal">
+          <span class="eyebrow pink">Los juegos</span>
+          <h2 class="h2">Una mesa para cada gusto</h2>
+          <p class="lead">Elige tu juego favorito y prueba tu suerte.</p>
+        </div>
+        <div class="gm" id="casino-games"></div>
+      </div>
+      <div class="skyline" data-color="#efe9ff" data-seed="4"></div>
+    </section>
+
+    <section class="sec lilac" id="skins">
+      <div class="wrap">
+        <div class="sec-head center reveal">
+          <span class="eyebrow">Skins</span>
+          <h2 class="h2">Viste tu mesa a tu manera</h2>
+          <p class="lead">Cambia el paño, el borde y las fichas. Se desbloquean con monedas dentro del juego.</p>
+        </div>
+        <div class="grid g3" id="skins-grid"></div>
+      </div>
+      <div class="skyline" data-color="#fff8ef" data-seed="19"></div>
+    </section>
+
+    <section class="sec cream" id="personajes">
+      <div class="wrap">
+        <div class="sec-head center reveal">
+          <span class="eyebrow yellow">Personajes</span>
+          <h2 class="h2">Elige quién se sienta a la mesa</h2>
+          <p class="lead">Cada personaje trae su propia personalidad (y su propio sombrero).</p>
+        </div>
+        <div class="grid g5" id="chars-grid"></div>
+      </div>
+      <div class="skyline" data-color="#7c5cff" data-seed="27"></div>
+    </section>
+
+    <section class="sec purple">
+      <div class="wrap center">
+        <div class="reveal">
+          <h2 class="h2" style="max-width:700px;margin-left:auto;margin-right:auto">La fortuna favorece a los valientes</h2>
+          <p class="lead" style="margin:0 auto 32px;color:#fff">Consulta quién lidera el top mundial o consigue más monedas para tu próxima partida.</p>
+          <div class="cta-row" style="justify-content:center">
+            <a class="btn btn-yellow btn-lg" href="ranking.html?juego=casino-fortuna">Ver el top mundial</a>
+            <a class="btn btn-white btn-lg" href="tienda-casino-fortuna.html">Ir a la tienda</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="app-footer"></div>
+
+  <script src="js/cubes.js"></script>
+  <script src="js/models.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/pages.js"></script>
+  <script src="js/ui.js"></script>
+</body>
+</html>

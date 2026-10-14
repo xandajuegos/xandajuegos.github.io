@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Iniciar sesión · XandA Juegos</title>
+  <meta name="description" content="Inicia sesión o crea tu cuenta XandA para jugar, comprar monedas y aparecer en el top mundial.">
+  <meta name="theme-color" content="#5ec8ee">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 3l11 6v14l-11 6-11-6V9z' fill='%23ff5a8a'/%3E%3Cpath d='M16 3l11 6-11 6-11-6z' fill='%23ff8fb0'/%3E%3Cpath d='M16 15l11-6v14l-11 6z' fill='%23d93d6c'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body data-page="login">
+  <div id="app-nav"></div>
+
+  <main>
+    <section class="auth">
+      <div class="wrap">
+        <div class="card auth-card reveal">
+          <div class="tabs small" id="auth-tabs" style="justify-content:flex-start">
+            <button class="tab on" data-t="login" type="button">Iniciar sesión</button>
+            <button class="tab" data-t="registro" type="button">Crear cuenta</button>
+          </div>
+          <h1 id="auth-title">Bienvenido de vuelta</h1>
+          <p id="auth-sub" class="note" style="margin-bottom:22px"></p>
+
+          <form id="form-login" novalidate>
+            <div class="form-err" role="alert"></div>
+            <div class="field"><label for="l-email">Correo electrónico</label><input class="input" id="l-email" name="email" type="email" autocomplete="email" placeholder="tucorreo@ejemplo.com"></div>
+            <div class="field"><label for="l-pass">Contraseña</label>
+              <div class="pw"><input class="input" id="l-pass" name="password" type="password" autocomplete="current-password" placeholder="••••••••"><button type="button" data-toggle-pass>Ver</button></div>
+            </div>
+            <button class="btn btn-pink btn-block btn-lg" type="submit">Entrar</button>
+          </form>
+
+          <form id="form-registro" novalidate style="display:none">
+            <div class="form-err" role="alert"></div>
+            <div class="field"><label for="r-name">Nombre de jugador</label><input class="input" id="r-name" name="playerName" maxlength="16" autocomplete="nickname" placeholder="Ej. PixelZorro"><div class="hint">Así te verán en los juegos y en el top mundial (3 a 16 caracteres).</div></div>
+            <div class="field"><label>Foto de perfil</label><div id="reg-avatar"></div></div>
+            <div class="field"><label for="r-email">Correo electrónico</label><input class="input" id="r-email" name="email" type="email" autocomplete="email" placeholder="tucorreo@ejemplo.com"></div>
+            <div class="field"><label for="r-pass">Contraseña</label>
+              <div class="pw"><input class="input" id="r-pass" name="password" type="password" autocomplete="new-password" placeholder="Mínimo 8 caracteres"><button type="button" data-toggle-pass>Ver</button></div>
+            </div>
+            <div class="field"><label for="r-conf">Repite la contraseña</label><input class="input" id="r-conf" name="confirm" type="password" autocomplete="new-password" placeholder="••••••••"></div>
+            <label class="check"><input type="checkbox" name="terms"><span>Acepto los términos de uso y el aviso de privacidad de XandA Juegos.</span></label>
+            <button class="btn btn-pink btn-block btn-lg" type="submit">Crear mi cuenta</button>
+          </form>
+          <p class="note center" style="margin:18px 0 0">Maqueta: la sesión se guarda solo en este navegador.</p>
+        </div>
+
+        <div class="auth-art reveal d1">
+          <div class="stage" data-model="fox" data-s="42" data-opts='{"hat":true,"cy":78}' data-tilt data-float></div>
+          <p class="pixel-title" style="font-size:1.1rem;line-height:1.6;margin-bottom:12px">Una cuenta,<br>todos los juegos</p>
+          <p>Tu nombre de jugador y tu foto te acompañan a cada partida.</p>
+        </div>
+      </div>
+      <div class="skyline" data-color="#1d1445" data-seed="2" style="display:none"></div>
+    </section>
+  </main>
+
+  <div id="app-footer"></div>
+
+  <script src="js/cubes.js"></script>
+  <script src="js/models.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/pages.js"></script>
+  <script src="js/ui.js"></script>
+</body>
+</html>

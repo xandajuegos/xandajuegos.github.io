@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Tienda de Casi Perfecto · XandA Juegos</title>
+  <meta name="description" content="Compra monedas para Casi Perfecto y desbloquea nuevos mapas.">
+  <meta name="theme-color" content="#b690b4">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 3l11 6v14l-11 6-11-6V9z' fill='%23ff5a8a'/%3E%3Cpath d='M16 3l11 6-11 6-11-6z' fill='%23ff8fb0'/%3E%3Cpath d='M16 15l11-6v14l-11 6z' fill='%23d93d6c'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body data-page="tienda-casi-perfecto">
+  <div id="app-nav"></div>
+
+  <main>
+    <section class="shop-hero">
+      <div class="wrap">
+        <div class="reveal">
+          <span class="eyebrow white">Tienda</span>
+          <h1 class="pixel-title">Casi<br>Perfecto</h1>
+          <p class="lead" style="color:#fff;margin-bottom:26px;text-shadow:0 2px 0 rgba(29,20,69,.3)">Consigue monedas para desbloquear mapas nuevos y seguir construyendo hasta el cielo.</p>
+          <div class="balance" id="balance"></div>
+        </div>
+        <div class="stage stage-card reveal d1" data-model="pile" data-s="36" data-opts='{"tier":5,"cy":80}' data-float></div>
+      </div>
+      <div class="skyline" data-color="#fff8ef" data-seed="6"></div>
+    </section>
+
+    <section class="sec cream" style="padding-top:70px">
+      <div class="wrap">
+        <div class="sec-head center reveal">
+          <span class="eyebrow pink">Monedas</span>
+          <h2 class="h2">Elige tu pack</h2>
+          <p class="lead">En Casi Perfecto solo se venden monedas. Los mapas se desbloquean dentro del juego usando tus monedas.</p>
+        </div>
+        <div class="packs" id="packs"></div>
+        <p class="note center" style="margin-top:34px">Precios de ejemplo en pesos mexicanos. Los pagos reales se conectarán más adelante.</p>
+      </div>
+      <div class="skyline" data-color="#efe9ff" data-seed="12"></div>
+    </section>
+
+    <section class="sec lilac">
+      <div class="wrap">
+        <div class="sec-head center reveal"><h2 class="h2">¿Cómo llegan mis monedas?</h2></div>
+        <div class="grid g3 steps-3">
+          <article class="card step reveal"><h3>Elige un pack</h3><p>Escoge la cantidad de monedas que necesitas. Los packs grandes traen monedas de regalo.</p></article>
+          <article class="card step reveal d1"><h3>Paga con seguridad</h3><p>Tarjeta, PayPal o pago en tiendas. Tú eliges cómo prefieres pagar.</p></article>
+          <article class="card step reveal d2"><h3>Juega al instante</h3><p>Las monedas se abonan a tu perfil de Casi Perfecto con el mismo nombre y foto de siempre.</p></article>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="app-footer"></div>
+
+  <script src="js/cubes.js"></script>
+  <script src="js/models.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/pages.js"></script>
+  <script src="js/ui.js"></script>
+</body>
+</html>

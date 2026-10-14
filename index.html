@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>XandA Juegos · Mundos hechos de bloques</title>
+  <meta name="description" content="XandA Juegos: Casi Perfecto y Casino Fortuna. Juegos de bloques en 3D, top mundial y una cuenta para todos.">
+  <meta name="theme-color" content="#5ec8ee">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 3l11 6v14l-11 6-11-6V9z' fill='%23ff5a8a'/%3E%3Cpath d='M16 3l11 6-11 6-11-6z' fill='%23ff8fb0'/%3E%3Cpath d='M16 15l11-6v14l-11 6z' fill='%23d93d6c'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body data-page="home">
+  <div id="app-nav"></div>
+
+  <main>
+    <!-- HERO -->
+    <section class="hero">
+      <div class="wrap">
+        <div class="reveal">
+          <span class="eyebrow white">Juegos de bloques</span>
+          <h1 class="pixel-title">XandA<br><span>Juegos</span></h1>
+          <p class="lead">Mundos hechos de cubos y partidas que enganchan. Levanta torres al límite o prueba tu suerte en el casino.</p>
+          <div class="cta-row">
+            <a class="btn btn-pink btn-lg" href="#juegos">Ver los juegos</a>
+            <a class="btn btn-white btn-lg" href="login.html?tab=registro">Crear cuenta</a>
+          </div>
+          <div class="hero-badges">
+            <span class="badge"><i class="dot"></i> Estilo de bloques 3D</span>
+            <span class="badge"><i class="dot" style="background:var(--purple)"></i> Top mundial</span>
+            <span class="badge"><i class="dot" style="background:var(--green)"></i> Una cuenta, todos los juegos</span>
+          </div>
+        </div>
+        <div class="stage stage-hero reveal d1" data-model="hero" data-s="42" data-opts='{"cy":74}' data-tilt data-float></div>
+      </div>
+      <div class="skyline" data-color="#fff8ef" data-seed="3"></div>
+    </section>
+
+    <!-- JUEGOS -->
+    <section class="sec cream" id="juegos">
+      <div class="wrap">
+        <div class="sec-head center reveal">
+          <span class="eyebrow pink">Nuestros juegos</span>
+          <h2 class="h2">Elige tu próximo reto</h2>
+          <p class="lead">Dos juegos, un mismo estilo. Cada cubo está puesto con cariño.</p>
+        </div>
+
+        <article class="game-card cp reveal">
+          <div class="gc-text">
+            <h3 class="pixel-title">Casi<br>Perfecto</h3>
+            <p>Construye una torre bloque a bloque. Si no le atinas, pierdes un pedazo; si fallas por completo, ¡la torre se viene abajo!</p>
+            <div class="tags"><span class="tag y">Un solo toque</span><span class="tag">Torres sin fin</span><span class="tag">Mapas por desbloquear</span><span class="tag">Top mundial</span></div>
+            <div class="cta-row">
+              <a class="btn btn-pink btn-lg" href="casi-perfecto.html">Conocer el juego</a>
+              <a class="btn btn-white" href="tienda-casi-perfecto.html">Tienda</a>
+            </div>
+          </div>
+          <div class="stage stage-card" data-model="cityTower" data-s="22" data-opts='{"cy":78}' data-tilt></div>
+        </article>
+
+        <article class="game-card cf rev reveal">
+          <div class="gc-text">
+            <h3 class="pixel-title">Casino<br>Fortuna</h3>
+            <p>Todo el casino en un solo lugar. Juega varios juegos, personaliza tu mesa con skins y elige a tu personaje favorito.</p>
+            <div class="tags"><span class="tag y">Varios juegos de casino</span><span class="tag">Skins de mesa</span><span class="tag">Personajes</span><span class="tag">Top mundial</span></div>
+            <div class="cta-row">
+              <a class="btn btn-yellow btn-lg" href="casino-fortuna.html">Conocer el juego</a>
+              <a class="btn btn-white" href="tienda-casino-fortuna.html">Tienda</a>
+            </div>
+          </div>
+          <div class="stage stage-card" data-model="slot" data-s="40" data-opts='{"cy":76}' data-tilt></div>
+        </article>
+      </div>
+      <div class="skyline" data-color="#7c5cff" data-seed="11"></div>
+    </section>
+
+    <!-- TOP MUNDIAL -->
+    <section class="sec purple" id="top">
+      <div class="wrap">
+        <div class="sec-head center reveal">
+          <span class="eyebrow yellow">Top mundial</span>
+          <h2 class="h2">Los mejores del mundo</h2>
+          <p class="lead">Cada juego tiene su propio ranking. ¿Te atreves a subir al podio?</p>
+        </div>
+        <div id="home-top" class="reveal">
+          <div class="tabs" id="home-tabs">
+            <button class="tab on" data-g="casi-perfecto" type="button">Casi Perfecto</button>
+            <button class="tab" data-g="casino-fortuna" type="button">Casino Fortuna</button>
+          </div>
+          <div class="podium" id="home-podium"></div>
+          <div class="center"><a class="btn btn-yellow btn-lg" id="home-board-link" href="ranking.html">Ver top completo</a></div>
+        </div>
+      </div>
+      <div class="skyline" data-color="#ffd54a" data-seed="23"></div>
+    </section>
+
+    <!-- TIENDAS -->
+    <section class="sec yellow" id="tiendas">
+      <div class="wrap">
+        <div class="sec-head center reveal">
+          <span class="eyebrow">Tiendas</span>
+          <h2 class="h2">Una tienda por juego</h2>
+          <p class="lead">Consigue monedas desde aquí y úsalas dentro del juego para desbloquear mapas, skins y personajes.</p>
+        </div>
+        <div class="grid g2">
+          <article class="card hover reveal">
+            <div class="tile-bg" style="background:linear-gradient(#e9c28f,#a68bb5)"><div class="stage stage-md" data-model="pile" data-s="30" data-opts='{"tier":5}' data-nosway></div></div>
+            <h3>Casi Perfecto</h3>
+            <p>Monedas para desbloquear mapas nuevos y seguir construyendo.</p>
+            <p style="margin-top:18px"><a class="btn btn-pink" href="tienda-casi-perfecto.html">Ir a la tienda</a></p>
+          </article>
+          <article class="card hover reveal d1">
+            <div class="tile-bg" style="background:linear-gradient(#7c5cff,#2a1f66)"><div class="stage stage-md" data-model="pile" data-s="30" data-opts='{"tier":4}' data-nosway></div></div>
+            <h3>Casino Fortuna</h3>
+            <p>Monedas para jugar más manos y desbloquear skins y personajes.</p>
+            <p style="margin-top:18px"><a class="btn btn-purple" href="tienda-casino-fortuna.html">Ir a la tienda</a></p>
+          </article>
+        </div>
+      </div>
+      <div class="skyline" data-color="#ff5a8a" data-seed="31"></div>
+    </section>
+
+    <!-- CUENTA -->
+    <section class="sec pink" id="cuenta">
+      <div class="wrap center">
+        <div class="reveal">
+          <span class="eyebrow white">Tu cuenta XandA</span>
+          <h2 class="h2" style="max-width:760px;margin-left:auto;margin-right:auto">Un nombre, una foto y todas tus partidas contigo</h2>
+          <p class="lead" style="margin:0 auto 34px;color:#fff">Elige tu nombre de jugador y tu avatar de bloques. Aparecerás así en los dos juegos y en el top mundial.</p>
+        </div>
+        <div id="cta-avatars" style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-bottom:40px" class="reveal d1"></div>
+        <div class="cta-row reveal d2" style="justify-content:center">
+          <a class="btn btn-yellow btn-lg" href="login.html?tab=registro">Crear mi cuenta</a>
+          <a class="btn btn-ghost btn-lg" href="login.html">Ya tengo cuenta</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="app-footer"></div>
+
+  <script src="js/cubes.js"></script>
+  <script src="js/models.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/pages.js"></script>
+  <script src="js/ui.js"></script>
+</body>
+</html>

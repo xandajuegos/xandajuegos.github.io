@@ -96,25 +96,9 @@
     { id: 'dados', name: 'Dados', desc: 'Lanza y deja que ruede la fortuna.' }
   ]; /* EJEMPLO: ajusta a los juegos reales de Casino Fortuna */
 
-  /* ---------- ranking de ejemplo (determinista) ---------- */
-  var NAMES = ['PixelZorro', 'LaTorreDeMau', 'Xime_Plays', 'CubitoFeliz', 'DonAtino', 'Fer.Block', 'SuperMeli', 'TorreroPro', 'Chispas', 'LuckyLeo',
-    'CapiBlock', 'ValeVegas', 'RuletaRick', 'DadoLoco', 'MiaMonedas', 'BlockyBoy', 'TetoTorre', 'Lola88', 'El_Profe', 'Nacho_Rey',
-    'Sofi.Games', 'Rayito', 'Chuy_77', 'KikeKubo', 'Dani_X', 'Pau.Pau', 'ElMasterDeBloques', 'Marti_Fortuna', 'Tona', 'GatoGamer'];
-  var COUNTRIES = ['MX', 'MX', 'AR', 'CO', 'ES', 'CL', 'PE', 'MX', 'US', 'BR', 'UY', 'EC', 'MX', 'VE', 'CR'];
-  function rng(seed) { var s = seed; return function () { s = (s * 1664525 + 1013904223) % 4294967296; return s / 4294967296; }; }
-  XA.leaderboard = function (game, period) {
-    var seed = (game === 'casi-perfecto' ? 11 : 97) + (period === 'hoy' ? 1 : period === 'semana' ? 2 : 3) * 31;
-    var r = rng(seed), list = [], used = {};
-    var base = game === 'casi-perfecto' ? { hoy: 61, semana: 148, siempre: 412 }[period] : { hoy: 2.4e6, semana: 18e6, siempre: 96e6 }[period];
-    for (var i = 0; i < 25; i++) {
-      var n;
-      do { n = Math.floor(r() * NAMES.length); } while (used[n]);
-      used[n] = 1;
-      var v = game === 'casi-perfecto' ? Math.round(base * Math.pow(0.955, i) - r() * 2) : Math.round(base * Math.pow(0.93, i) * (0.97 + r() * .05));
-      list.push({ rank: i + 1, name: NAMES[n], avatar: XA.avatars[Math.floor(r() * XA.avatars.length)].id, country: COUNTRIES[Math.floor(r() * COUNTRIES.length)], score: v });
-    }
-    return list;
-  };
+
+  /* ---------- ranking real (API) ---------- */
+  XA.GAME_SLUGS = { 'casi-perfecto': 'casi-perfecto', 'casino-fortuna': 'casino-fortuna' };
   XA.scoreText = function (game, v) {
     if (game === 'casi-perfecto') return XA.num(v);
     if (v >= 1e6) return (v / 1e6).toFixed(1).replace('.0', '') + ' M';
@@ -123,46 +107,158 @@
   };
 
   /* ==========================================================
-     SESIÓN DE DEMOSTRACIÓN (localStorage)
-     SOLO PARA MAQUETA: se sustituirá por el inicio de sesión
-     real de la cuenta de xandajuegos (tabla `users`).
+     CUENTAS Y DATOS REALES · API de XandA Juegos
+     - Sesión: token Bearer en localStorage.
+     - Nombre, foto, monedas, fichas y colección de Casino Fortuna
+       vienen del progreso que el juego sincroniza con la cuenta.
+     - Si la API no responde, se muestra el último dato guardado.
      ========================================================== */
-  var UK = 'xanda_users_demo', SK = 'xanda_session_demo';
-  function load(k, d) { try { return JSON.parse(localStorage.getItem(k)) || d; } catch (e) { return d; } }
+  var API_URL = 'https://xanda-juegos-api.onrender.com/api';
+  var TOKEN_KEY = 'xanda_auth_token';
+  var USER_KEY = 'xanda_auth_user';
+
+  function load(k, d) { try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } }
   function save(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
-  function hash(s) { var h = 5381; for (var i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return String(h); }
+  function drop() { try { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(USER_KEY); } catch (e) {} }
+
+  function request(path, options) {
+    options = options || {};
+    var headers = { 'Content-Type': 'application/json' };
+    var token = load(TOKEN_KEY, null);
+    if (token) headers.Authorization = 'Bearer ' + token;
+    return fetch(API_URL + path, Object.assign({}, options, { headers: headers })).then(function (res) {
+      if (res.status === 204) return null;
+      return res.json().catch(function () { return {}; }).then(function (body) {
+        if (!res.ok) {
+          var e = body && body.error;
+          var err = new Error((e && e.message) || (typeof e === 'string' ? e : '') || 'No se pudo completar la solicitud.');
+          err.status = res.status;
+          err.code = e && e.code;
+          throw err;
+        }
+        return body;
+      });
+    });
+  }
+
+  function translateError(error) {
+    if (!error) return 'Ocurrió un error inesperado.';
+    if (error instanceof TypeError) return 'No se pudo conectar con el servidor. Si estaba dormido, espera unos segundos e inténtalo de nuevo.';
+    if (error.status >= 500) return 'El servidor tuvo un problema. Inténtalo más tarde.';
+    return error.message || 'No se pudo completar la solicitud.';
+  }
+
+  /* Catálogo de Casino Fortuna (nombres para mostrar lo que trae el guardado) */
+  XA.cfChars = { oveja: 'Oveja', perro: 'Perro', gato: 'Gato', borrego: 'Borrego', vaca: 'Vaca' };
+  XA.cfSkins = { crupier: 'Crupier', real: 'Real', chef: 'Chef', pirata: 'Pirata', mago: 'Mago', fortuna: 'De la fortuna', astronauta: 'Astronauta', cumple: 'De cumpleaños' };
+
+  /* Fotos de perfil que existen en el juego */
+  var GAME_AV = {
+    av_abuelo_azul: { bg: '#9ad8ff', g: '👴' }, av_abuelo_verde: { bg: '#bff0c4', g: '👴' }, av_perro: { bg: '#ffe0b8', g: '🐶' },
+    av_pica: { bg: '#5b6cff', g: '♠' }, av_corazon: { bg: '#ff5e7e', g: '♥' }, av_diamante: { bg: '#ffb02e', g: '♦' }, av_trebol: { bg: '#38d67a', g: '♣' }
+  };
+  var siteAvatar = XA.avatar;
+  XA.avatar = function (id, size) {
+    size = size || 48;
+    id = id || '';
+    if (/^data:image\//.test(id) || GAME_AV[id]) {
+      var el = document.createElement('div');
+      el.className = 'avatar';
+      el.style.width = el.style.height = size + 'px';
+      if (GAME_AV[id]) {
+        el.style.background = GAME_AV[id].bg;
+        el.style.display = 'flex'; el.style.alignItems = 'center'; el.style.justifyContent = 'center';
+        el.style.color = '#fff'; el.style.fontSize = Math.round(size * 0.5) + 'px';
+        el.textContent = GAME_AV[id].g;
+      } else {
+        el.style.background = '#e6dcff url("' + id + '") center/cover no-repeat';
+      }
+      return el;
+    }
+    return siteAvatar(id, size);
+  };
+
+  var currentUser = null;
+  var initPromise = null;
+
+  function nameFromEmail(email) { return String(email || 'Jugador').split('@')[0].slice(0, 16); }
+
+  function buildUser(apiUser, saveRes) {
+    var u = { id: apiUser.id, email: apiUser.email, playerName: nameFromEmail(apiUser.email), avatar: 'zorro', game: null };
+    if (saveRes && saveRes.exists) {
+      var d = saveRes.data || {}, p = saveRes.profile || {};
+      u.playerName = p.name || u.playerName;
+      u.avatar = p.avatar ? (p.avatar.type === 'custom' ? p.avatar.data : p.avatar.id) : 'oveja';
+      u.game = {
+        coins: p.coins || 0,
+        chips: p.chips || 0,
+        characters: (d.characters && d.characters.unlocked) || [],
+        skins: (d.skins && d.skins.owned) || [],
+        updatedAt: saveRes.updatedAt
+      };
+    }
+    return u;
+  }
+
+  function fetchUser() {
+    return request('/me').then(function (me) {
+      return request('/games/casino-fortuna/save').catch(function () { return null; }).then(function (s) {
+        currentUser = buildUser(me.user, s);
+        save(USER_KEY, currentUser);
+        return currentUser;
+      });
+    });
+  }
 
   XA.auth = {
-    current: function () {
-      var id = load(SK, null);
-      if (!id) return null;
-      return load(UK, []).filter(function (u) { return u.id === id; })[0] || null;
+    apiUrl: API_URL,
+    init: function () {
+      if (initPromise) return initPromise;
+      initPromise = (function () {
+        if (!load(TOKEN_KEY, null)) { currentUser = null; return Promise.resolve(null); }
+        return fetchUser().catch(function (error) {
+          if (error.status === 401 || error.status === 403) { drop(); currentUser = null; return null; }
+          currentUser = load(USER_KEY, null); // API dormida o sin red: último dato guardado
+          return currentUser;
+        });
+      })();
+      return initPromise;
     },
+    current: function () { return currentUser; },
+    _preview: function (u) { if (!currentUser) currentUser = u; },
     register: function (d) {
-      var users = load(UK, []);
-      if (users.some(function (u) { return u.email.toLowerCase() === d.email.toLowerCase(); })) return { error: 'Ese correo ya tiene una cuenta.' };
-      var u = {
-        id: 'u_' + Date.now().toString(36), email: d.email, pass: hash(d.password), playerName: d.playerName, avatar: d.avatar,
-        createdAt: new Date().toISOString(),
-        profiles: {
-          'casi-perfecto': { coins: 60, best: 0, rank: null, maps: ['ciudad'] },
-          'casino-fortuna': { coins: 1000, best: 0, rank: null, skins: ['clasico'], characters: ['lucky'] }
-        }
-      };
-      users.push(u); save(UK, users); save(SK, u.id);
-      return { user: u };
+      return request('/auth/register', { method: 'POST', body: JSON.stringify({ email: d.email.trim(), password: d.password, acceptTerms: true }) })
+        .then(function (r) {
+          save(TOKEN_KEY, r.token);
+          currentUser = buildUser(r.user, null);
+          save(USER_KEY, currentUser);
+          initPromise = Promise.resolve(currentUser);
+          return { user: currentUser };
+        }).catch(function (e) { return { error: translateError(e) }; });
     },
     login: function (email, password) {
-      var u = load(UK, []).filter(function (x) { return x.email.toLowerCase() === email.toLowerCase() && x.pass === hash(password); })[0];
-      if (!u) return { error: 'Correo o contraseña incorrectos.' };
-      save(SK, u.id);
-      return { user: u };
+      return request('/auth/login', { method: 'POST', body: JSON.stringify({ email: email.trim(), password: password }) })
+        .then(function (r) {
+          save(TOKEN_KEY, r.token);
+          return fetchUser();
+        }).then(function (u) {
+          initPromise = Promise.resolve(u);
+          return { user: u };
+        }).catch(function (e) { drop(); return { error: translateError(e) }; });
     },
-    logout: function () { try { localStorage.removeItem(SK); } catch (e) {} },
-    update: function (patch) {
-      var users = load(UK, []), id = load(SK, null);
-      users = users.map(function (u) { return u.id === id ? Object.assign(u, patch) : u; });
-      save(UK, users);
+    logout: function () {
+      var token = load(TOKEN_KEY, null);
+      drop();
+      currentUser = null;
+      initPromise = Promise.resolve(null);
+      if (!token) return Promise.resolve();
+      return fetch(API_URL + '/auth/logout', { method: 'POST', headers: { Authorization: 'Bearer ' + token } }).catch(function () {});
     }
+  };
+
+  /* Ranking real. Devuelve { entries:[{rank,name,avatar,country,score}], me } */
+  XA.leaderboard = function (game, period) {
+    return request('/leaderboard/' + (XA.GAME_SLUGS[game] || game) + '?limit=25&period=' + (period || 'siempre'))
+      .catch(function () { return { entries: [], me: null, offline: true }; });
   };
 })(window.XA);

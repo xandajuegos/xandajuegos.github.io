@@ -149,11 +149,15 @@
   XA.reveal = reveal;
 
   /* ---------- arranque ---------- */
+  var started = false;
+  var NEEDS_AUTH = { login: 1, perfil: 1, 'tienda-casi-perfecto': 1, 'tienda-casino-fortuna': 1 };
+
   function init() {
+    if (started) return;
+    started = true;
     var navMount = document.getElementById('app-nav'), footMount = document.getElementById('app-footer');
     if (navMount) navMount.replaceWith(el(navHTML()));
     if (footMount) footMount.replaceWith(el(footHTML()));
-    renderAuth();
 
     var burger = document.getElementById('burger'), links = document.getElementById('navlinks');
     if (burger) burger.addEventListener('click', function () {
@@ -161,23 +165,35 @@
       burger.classList.toggle('open', open);
       burger.setAttribute('aria-expanded', open);
     });
-    document.querySelectorAll('.dd-btn').forEach(function (b) {
-      b.addEventListener('click', function (e) { e.stopPropagation(); b.parentNode.classList.toggle('open'); });
+    // Los desplegables se crean al pintar la sesión: se delega el clic.
+    document.addEventListener('click', function (e) {
+      var b = e.target.closest && e.target.closest('.dd-btn');
+      document.querySelectorAll('.dd.open').forEach(function (d) { if (!b || d !== b.parentNode) d.classList.remove('open'); });
+      if (b) { e.stopPropagation(); b.parentNode.classList.toggle('open'); }
     });
-    document.addEventListener('click', function () { document.querySelectorAll('.dd.open').forEach(function (d) { d.classList.remove('open'); }); });
-
     document.querySelectorAll('[data-play]').forEach(function (b) {
       b.addEventListener('click', function (e) { e.preventDefault(); XA.toast('Aquí irá el enlace directo al juego.'); });
     });
 
-    bgCubes();
-    XA.mountAll();
-    XA.skylines();
-    tilt();
-    if (XA.pages && XA.pages[page]) XA.pages[page]();
-    XA.mountAll();
-    XA.skylines();
-    reveal();
+    var page = document.body.dataset.page || '';
+    function runPage() {
+      if (XA.pages && XA.pages[page]) XA.pages[page]();
+      XA.mountAll(); XA.skylines(); reveal();
+    }
+
+    // Pinta la sesión guardada al instante (la API gratuita puede tardar en despertar).
+    var cached = null;
+    try { cached = JSON.parse(localStorage.getItem('xanda_auth_user') || 'null'); } catch (e) {}
+    if (cached && localStorage.getItem('xanda_auth_token')) { XA.auth._preview(cached); renderAuth(); }
+
+    bgCubes(); XA.mountAll(); XA.skylines(); tilt();
+
+    var ready = XA.auth.init().then(function () { renderAuth(); }).catch(function () { renderAuth(); });
+    if (NEEDS_AUTH[page]) {
+      var root = document.getElementById('profile');
+      if (root && page === 'perfil') root.innerHTML = '<p class="note center">Conectando con tu cuenta… (si el servidor estaba dormido puede tardar unos segundos)</p>';
+      ready.then(runPage);
+    } else runPage();
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })(window.XA);

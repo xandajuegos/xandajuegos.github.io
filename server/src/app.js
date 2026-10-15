@@ -246,6 +246,46 @@ export function createApp(pool, { allowedOrigins = '*', sessionDays = 90, trustP
     } finally { client.release(); }
   }));
 
+  /* ---------- Ranking público ---------- */
+  const optionalAuth = wrap(async (req, res, next) => {
+    if (!/^Bearer (.+)$/.test(req.headers.authorization || '')) return next();
+    return requireAuth(req, res, next);
+  });
+  const PERIODS = { siempre: null, semana: '7 days', hoy: '1 day' };
+
+  app.get('/api/leaderboard/:game', optionalAuth, wrap(async (req, res) => {
+    const slug = String(req.params.game);
+    const period = Object.hasOwn(PERIODS, req.query.period) ? req.query.period : 'siempre';
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 25, 1), 100);
+    const game = (await pool.query('SELECT id FROM games WHERE slug = $1 AND is_active', [slug])).rows[0];
+    if (!game) throw fail(404, 'not_found', 'Juego no encontrado.');
+
+    // Una fila por jugador: su mejor marca (de siempre) o su mejor marca del periodo.
+    const base = PERIODS[period] === null
+      ? `SELECT p.id AS pid, p.player_name, a.slug AS avatar, u.country_code, b.score, b.achieved_at AS at
+         FROM best_scores b JOIN player_profiles p ON p.id = b.profile_id JOIN avatars a ON a.id = p.avatar_id
+         JOIN users u ON u.id = p.user_id WHERE b.game_id = $1 AND u.status = 'active'`
+      : `SELECT p.id AS pid, p.player_name, a.slug AS avatar, u.country_code, MAX(s.score) AS score, MIN(s.created_at) AS at
+         FROM scores s JOIN player_profiles p ON p.id = s.profile_id JOIN avatars a ON a.id = p.avatar_id
+         JOIN users u ON u.id = p.user_id
+         WHERE s.game_id = $1 AND u.status = 'active' AND s.created_at >= now() - interval '${PERIODS[period]}'
+         GROUP BY p.id, p.player_name, a.slug, u.country_code`;
+    const ranked = `SELECT RANK() OVER (ORDER BY score DESC, at) AS position, pid, player_name, avatar, country_code, score FROM (${base}) t`;
+
+    const top = (await pool.query(`SELECT * FROM (${ranked}) r ORDER BY position, player_name LIMIT ${limit}`, [game.id])).rows;
+    let me = null;
+    if (req.user) {
+      const m = (await pool.query(
+        `SELECT r.position, r.score FROM (${ranked}) r JOIN player_profiles p ON p.id = r.pid
+         WHERE p.user_id = $2 AND p.game_id = $1`, [game.id, req.user.id])).rows[0];
+      if (m) me = { position: Number(m.position), score: Number(m.score) };
+    }
+    res.json({
+      game: slug, period, me,
+      entries: top.map((r) => ({ rank: Number(r.position), name: r.player_name, avatar: r.avatar, country: r.country_code || null, score: Number(r.score) })),
+    });
+  }));
+
   /* ---------- Errores ---------- */
   app.use((req, res) => res.status(404).json({ error: { code: 'not_found', message: 'Ruta no encontrada.' } }));
   // eslint-disable-next-line no-unused-vars

@@ -1,4 +1,5 @@
 // Prepara la base de datos: schema + seed (solo si está vacía) y la migración (siempre, es idempotente).
+import 'dotenv/config';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';

@@ -141,6 +141,23 @@ test('guardado inválido o enorme se rechaza', async () => {
   assert.equal((await call('PUT', url, { baseRevision: null, data: { x: 'a'.repeat(310000) } }, token)).status, 400);
 });
 
+test('ranking público: periodos, posición propia y juego inexistente', async () => {
+  const { body: { token } } = await reg('rk1@ejemplo.com');
+  const put = await call('PUT', '/api/games/casino-fortuna/save', { baseRevision: null, profile: { name: 'RankUno', avatar: { type: 'preset', id: 'oveja' } }, data: { coins: 0, chips: 90000000000, characters: { unlocked: ['oveja'] }, skins: { owned: [], equipped: {} } } }, token);
+  assert.equal(put.status, 200);
+  for (const period of ['siempre', 'semana', 'hoy']) {
+    const r = await call('GET', `/api/leaderboard/casino-fortuna?period=${period}`);
+    assert.equal(r.status, 200);
+    assert.equal(r.body.entries[0].name, 'RankUno');
+    assert.equal(r.body.me, null);
+  }
+  const mine = await call('GET', '/api/leaderboard/casino-fortuna', null, token);
+  assert.equal(mine.body.me.position, 1);
+  assert.equal(mine.body.me.score, 90000000000);
+  assert.equal((await call('GET', '/api/leaderboard/casi-perfecto')).body.entries.length, 0);
+  assert.equal((await call('GET', '/api/leaderboard/no-existe')).status, 404);
+});
+
 test('logout invalida la sesión y CORS responde', async () => {
   const { body: { token } } = await reg('out@ejemplo.com');
   assert.equal((await call('POST', '/api/auth/logout', null, token)).status, 204);
@@ -155,3 +172,4 @@ test('límite de intentos de login', async () => {
   for (let i = 0; i < 10; i++) last = await call('POST', '/api/auth/login', { email: 'lim@ejemplo.com', password: 'incorrecta-123' });
   assert.equal(last.status, 429);
 });
+

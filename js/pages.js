@@ -1,6 +1,8 @@
 /* ==========================================================
    XandA Juegos · Lógica visual de cada página
    (cuentas, perfil y ranking reales vía API; tiendas aún de maqueta)
+
+   pages.js corregido
    ========================================================== */
 (function (XA) {
   function $(s, r) { return (r || document).querySelector(s); }
@@ -36,6 +38,7 @@
     $$('.who', box).forEach(function (w) { w.insertBefore(XA.avatar(w.getAttribute('data-av'), 40), w.firstChild); });
   };
 
+  /* Selector de foto de perfil (registro y editar perfil) */
   function avatarPicker(name, selected) {
     var wrap = mk('<div class="av-pick" role="radiogroup" aria-label="Foto de perfil"></div>');
     XA.avatars.forEach(function (a) {
@@ -173,14 +176,20 @@
         else { b.disabled = false; b.textContent = b.dataset.t || b.textContent; }
       }
       var next = new URLSearchParams(location.search).get('next');
-      function done() {
+      function done(warning) {
         XA.renderAuth && XA.renderAuth();
         XA.toast('¡Listo! Entrando…', 'ok');
-        setTimeout(function () { location.href = next && /^[a-z\-]+\.html$/.test(next) ? next : 'perfil.html'; }, 700);
+        if (warning) XA.toast(warning);
+        setTimeout(function () { location.href = next && /^[a-z\-]+\.html$/.test(next) ? next : 'perfil.html'; }, warning ? 2600 : 700);
       }
 
       tabs.forEach(function (t) { t.addEventListener('click', function () { show(t.getAttribute('data-t')); }); });
       show(new URLSearchParams(location.search).get('tab') === 'registro' ? 'registro' : 'login');
+
+      // Foto de perfil en el registro
+      var regAv = $('#reg-avatar');
+      if (regAv) regAv.appendChild(avatarPicker('avatar', 'zorro'));
+
       $$('[data-toggle-pass]').forEach(function (b) {
         b.addEventListener('click', function () {
           var i = b.previousElementSibling, vis = i.type === 'password';
@@ -204,17 +213,20 @@
 
       forms.registro.addEventListener('submit', function (e) {
         e.preventDefault();
-        var f = forms.registro, em = f.email.value.trim(), pw = f.password.value;
+        var f = forms.registro, nm = f.playerName.value.trim(), em = f.email.value.trim(), pw = f.password.value;
         clear(f);
+        if (nm.length < 3 || nm.length > 16) return fail(f, 'El nombre de jugador debe tener entre 3 y 16 caracteres.', f.playerName);
+        if (!/^[\wÀ-ÿ.\- ]+$/.test(nm)) return fail(f, 'Usa solo letras, números, punto, guion o guion bajo.', f.playerName);
         if (!/^\S+@\S+\.\S+$/.test(em)) return fail(f, 'Escribe un correo válido.', f.email);
         if (pw.length < 8) return fail(f, 'La contraseña debe tener al menos 8 caracteres.', f.password);
         if (pw !== f.confirm.value) return fail(f, 'Las contraseñas no coinciden.', f.confirm);
         if (!f.terms.checked) return fail(f, 'Debes aceptar los términos para continuar.');
+        var av = (f.querySelector('input[name=avatar]:checked') || {}).value || 'zorro';
         busy(f, true);
-        XA.auth.register({ email: em, password: pw }).then(function (r) {
+        XA.auth.register({ playerName: nm, email: em, password: pw, avatar: av }).then(function (r) {
           busy(f, false);
           if (r.error) return fail(f, r.error, f.email);
-          done();
+          done(r.warning);
         });
       });
     },
@@ -228,8 +240,8 @@
         return;
       }
       root.innerHTML =
-        '<div class="card prof-head" id="p-head"><div id="p-av"></div><div style="flex:1;min-width:220px"><h1></h1><p class="note" id="p-mail"></p><p class="note">Tu nombre y tu foto se cambian desde el juego.</p></div>' +
-        '<div class="cta-row"><button class="btn btn-ghost btn-sm" style="color:var(--ink);background:var(--lilac)" id="p-out" type="button">Cerrar sesión</button></div></div>' +
+        '<div class="card prof-head" id="p-head"><div id="p-av"></div><div style="flex:1;min-width:220px"><h1></h1><p class="note" id="p-mail"></p></div>' +
+        '<div class="cta-row"><button class="btn btn-purple btn-sm" id="p-edit" type="button">Editar perfil</button><button class="btn btn-ghost btn-sm" style="color:var(--ink);background:var(--lilac)" id="p-out" type="button">Cerrar sesión</button></div></div>' +
         '<div class="tabs mt" id="p-tabs"><button class="tab" data-g="casi-perfecto" type="button">Casi Perfecto</button><button class="tab on" data-g="casino-fortuna" type="button">Casino Fortuna</button></div>' +
         '<div class="card" id="p-game"></div>';
       $('#p-head h1').textContent = u.playerName;
@@ -272,6 +284,35 @@
       }
       $$('#p-tabs .tab').forEach(function (t) { t.addEventListener('click', function () { drawGame(t.getAttribute('data-g')); }); });
       drawGame('casino-fortuna');
+
+      /* ---------- Editar perfil (nombre y foto) ---------- */
+      $('#p-edit').addEventListener('click', function () {
+        var f = mk('<form novalidate><h3>Editar perfil</h3>' +
+          '<div class="field"><label for="e-name">Nombre de jugador</label><input class="input" id="e-name" maxlength="16" value="' + esc(u.playerName) + '"><div class="err" id="e-err"></div></div>' +
+          '<div class="field"><label>Foto de perfil</label><div id="e-av"></div></div>' +
+          '<button class="btn btn-pink btn-block" type="submit">Guardar cambios</button></form>');
+        $('#e-av', f).appendChild(avatarPicker('eav', u.avatar));
+        var m = XA.modal(f);
+        f.addEventListener('submit', function (e) {
+          e.preventDefault();
+          var err = $('#e-err', f), btn = $('button[type="submit"]', f);
+          var nm = $('#e-name', f).value.trim();
+          err.textContent = '';
+          if (nm.length < 3 || nm.length > 16) { err.textContent = 'Entre 3 y 16 caracteres.'; return; }
+          if (!/^[\wÀ-ÿ.\- ]+$/.test(nm)) { err.textContent = 'Usa solo letras, números, punto, guion o guion bajo.'; return; }
+          // Si la foto actual es del juego (no está en el selector), se conserva.
+          var chosen = f.querySelector('input[name=eav]:checked');
+          var av = chosen ? chosen.value : u.avatar;
+          btn.disabled = true; btn.textContent = 'Guardando…';
+          XA.auth.update({ playerName: nm, avatar: av }).then(function (r) {
+            if (r.error) { err.textContent = r.error; btn.disabled = false; btn.textContent = 'Guardar cambios'; return; }
+            XA.toast('Perfil actualizado', 'ok');
+            m.close();
+            setTimeout(function () { location.reload(); }, 500);
+          });
+        });
+        $('#e-name', f).focus();
+      });
     }
   };
 

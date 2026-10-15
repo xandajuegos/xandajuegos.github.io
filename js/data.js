@@ -2,6 +2,8 @@
    XandA Juegos · Datos de ejemplo (visuales, sin backend)
    Todo lo marcado como EJEMPLO se reemplazará por la API
    cuando se conecte la base de datos (ver /database).
+
+   data.js corregido
    ========================================================== */
 (function (XA) {
   XA.CURRENCY = 'MXN';
@@ -111,6 +113,8 @@
      - Sesión: token Bearer en localStorage.
      - Nombre, foto, monedas, fichas y colección de Casino Fortuna
        vienen del progreso que el juego sincroniza con la cuenta.
+     - El nombre y la foto también se pueden elegir al crear la
+       cuenta y cambiar desde "Editar perfil" (PUT /api/me/profile).
      - Si la API no responde, se muestra el último dato guardado.
      ========================================================== */
   var API_URL = 'https://xanda-juegos-api.onrender.com/api';
@@ -183,15 +187,26 @@
 
   function nameFromEmail(email) { return String(email || 'Jugador').split('@')[0].slice(0, 16); }
 
+  /* Convierte el id de avatar que usa el sitio al formato que entiende la API */
+  function avatarPayload(id) {
+    id = id || 'zorro';
+    if (/^data:image\//.test(id)) return { type: 'custom', data: id };
+    return { type: 'preset', id: id };
+  }
+
   function buildUser(apiUser, saveRes) {
     var u = { id: apiUser.id, email: apiUser.email, playerName: nameFromEmail(apiUser.email), avatar: 'zorro', game: null };
-    if (saveRes && saveRes.exists) {
-      var d = saveRes.data || {}, p = saveRes.profile || {};
+    // El perfil (nombre y foto) puede existir aunque el juego aún no haya sincronizado su progreso.
+    if (saveRes && (saveRes.exists || saveRes.profile)) {
+      var p = saveRes.profile || {};
       u.playerName = p.name || u.playerName;
       u.avatar = p.avatar ? (p.avatar.type === 'custom' ? p.avatar.data : p.avatar.id) : 'oveja';
+    }
+    if (saveRes && saveRes.exists) {
+      var d = saveRes.data || {}, pr = saveRes.profile || {};
       u.game = {
-        coins: p.coins || 0,
-        chips: p.chips || 0,
+        coins: pr.coins || 0,
+        chips: pr.chips || 0,
         characters: (d.characters && d.characters.unlocked) || [],
         skins: (d.skins && d.skins.owned) || [],
         updatedAt: saveRes.updatedAt
@@ -226,16 +241,36 @@
     },
     current: function () { return currentUser; },
     _preview: function (u) { if (!currentUser) currentUser = u; },
+
+    /* d = { email, password, playerName?, avatar? }
+       Devuelve { user, warning? } o { error } */
     register: function (d) {
       return request('/auth/register', { method: 'POST', body: JSON.stringify({ email: d.email.trim(), password: d.password, acceptTerms: true }) })
         .then(function (r) {
           save(TOKEN_KEY, r.token);
           currentUser = buildUser(r.user, null);
-          save(USER_KEY, currentUser);
-          initPromise = Promise.resolve(currentUser);
-          return { user: currentUser };
+          var warning = null;
+          var chain = Promise.resolve();
+          if (d.playerName) {
+            var av = d.avatar || 'zorro';
+            chain = request('/me/profile', { method: 'PUT', body: JSON.stringify({ name: d.playerName, avatar: avatarPayload(av) }) })
+              .then(function (pr) {
+                currentUser.playerName = (pr && pr.profile && pr.profile.name) || d.playerName;
+                currentUser.avatar = av;
+              })
+              .catch(function (e) {
+                // La cuenta ya se creó: no se pierde, solo se avisa para que lo cambie en "Editar perfil".
+                warning = 'Tu cuenta se creó, pero no se pudo guardar tu nombre y foto: ' + translateError(e) + ' Puedes cambiarlos en Editar perfil.';
+              });
+          }
+          return chain.then(function () {
+            save(USER_KEY, currentUser);
+            initPromise = Promise.resolve(currentUser);
+            return { user: currentUser, warning: warning };
+          });
         }).catch(function (e) { return { error: translateError(e) }; });
     },
+
     login: function (email, password) {
       return request('/auth/login', { method: 'POST', body: JSON.stringify({ email: email.trim(), password: password }) })
         .then(function (r) {
@@ -246,6 +281,22 @@
           return { user: u };
         }).catch(function (e) { drop(); return { error: translateError(e) }; });
     },
+
+    /* patch = { playerName, avatar }. Devuelve { user } o { error } */
+    update: function (patch) {
+      var name = (patch.playerName || '').trim();
+      var av = patch.avatar || (currentUser && currentUser.avatar) || 'zorro';
+      return request('/me/profile', { method: 'PUT', body: JSON.stringify({ name: name, avatar: avatarPayload(av) }) })
+        .then(function (r) {
+          if (currentUser) {
+            currentUser.playerName = (r && r.profile && r.profile.name) || name;
+            currentUser.avatar = av;
+            save(USER_KEY, currentUser);
+          }
+          return { user: currentUser };
+        }).catch(function (e) { return { error: translateError(e) }; });
+    },
+
     logout: function () {
       var token = load(TOKEN_KEY, null);
       drop();

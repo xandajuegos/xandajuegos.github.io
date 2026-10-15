@@ -1,4 +1,4 @@
-// API de cuentas y progreso de XandA Juegos.
+// API de cuentas y progreso de XandA Juegos (corregido: incluye PUT /api/me/profile).
 import express from 'express';
 import { randomInt } from 'node:crypto';
 import { hashPassword, verifyPassword, burnPasswordCheck, newToken, tokenHash } from './auth.js';
@@ -47,6 +47,7 @@ export function createApp(pool, { allowedOrigins = '*', sessionDays = 90, trustP
 
   const authLimit = limiter({ max: 15, windowMs: 60000 });
   const loginLimit = limiter({ max: 8, windowMs: 60000 });
+  const profileLimit = limiter({ max: 20, windowMs: 60000 });
   const wrap = (fn) => (req, res, next) => fn(req, res, next).catch(next);
 
   /* ---------- Sesiones ---------- */
@@ -129,7 +130,7 @@ export function createApp(pool, { allowedOrigins = '*', sessionDays = 90, trustP
     res.json({ user: { id: req.user.id, email: req.user.email } });
   }));
 
-  /* ---------- Progreso de Casino Fortuna ---------- */
+  /* ---------- Perfil de Casino Fortuna ---------- */
   const loadProfile = async (db, userId, lock = false) => (await db.query(
     `SELECT p.id, p.player_name, p.coins, p.chips, p.avatar_custom, a.slug AS avatar_slug, s.revision, s.data, s.updated_at
      FROM player_profiles p JOIN avatars a ON a.id = p.avatar_id JOIN games g ON g.id = p.game_id
@@ -142,12 +143,58 @@ export function createApp(pool, { allowedOrigins = '*', sessionDays = 90, trustP
     data: p.data,
   });
 
+  // Busca el avatar por slug; si no existe usa "oveja" y, en último caso, el primero que haya.
+  const resolveAvatarId = async (client, slug) =>
+    (await client.query('SELECT id FROM avatars WHERE slug = $1 AND is_active', [slug ?? 'oveja'])).rows[0]?.id
+    ?? (await client.query("SELECT id FROM avatars WHERE slug = 'oveja'")).rows[0]?.id
+    ?? (await client.query('SELECT id FROM avatars ORDER BY id LIMIT 1')).rows[0].id;
+
   app.get('/api/games/casino-fortuna/save', requireAuth, wrap(async (req, res) => {
     const p = await loadProfile(pool, req.user.id);
-    if (!p || p.revision == null) return res.json({ exists: false });
+    if (!p) return res.json({ exists: false });
+    // Hay perfil (nombre y foto elegidos en la web) pero el juego aún no ha guardado progreso.
+    if (p.revision == null) return res.json({ exists: false, profile: describe(p).profile });
     res.json({ exists: true, ...describe(p) });
   }));
 
+  /* Editar nombre y foto desde la web (también se usa justo después de registrarse).
+     Crea el perfil del juego si todavía no existe; no toca monedas ni progreso. */
+  app.put('/api/me/profile', requireAuth, profileLimit((r) => 'prof:' + r.ip), wrap(async (req, res) => {
+    const rawName = String(req.body?.name ?? '').trim();
+    if (rawName.length < 3 || rawName.length > 16) throw fail(400, 'invalid_name', 'El nombre de jugador debe tener entre 3 y 16 caracteres.');
+    const name = cleanName(rawName) || rawName;
+    const av = cleanAvatar(req.body?.avatar);
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const game = (await client.query('SELECT id FROM games WHERE slug = $1 AND is_active', [GAME_SLUG])).rows[0];
+      if (!game) throw fail(503, 'game_unavailable', 'El juego no está disponible en el servidor.');
+      const avatarId = await resolveAvatarId(client, av.slug);
+      const p = await loadProfile(client, req.user.id, true);
+      try {
+        if (!p) {
+          await client.query(
+            `INSERT INTO player_profiles (user_id, game_id, player_name, avatar_id, coins, chips, avatar_custom)
+             VALUES ($1,$2,$3,$4,0,0,$5)`, [req.user.id, game.id, name, avatarId, av.custom ?? null]);
+        } else {
+          await client.query(
+            `UPDATE player_profiles SET player_name = $2, avatar_id = $3, avatar_custom = $4, updated_at = now() WHERE id = $1`,
+            [p.id, name, avatarId, av.custom ?? null]);
+        }
+      } catch (e) {
+        if (e.code === '23505') throw fail(409, 'name_taken', 'Ese nombre de jugador ya está en uso. Prueba con otro.');
+        throw e;
+      }
+      await client.query('COMMIT');
+      res.json({ profile: { name } });
+    } catch (e) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw e;
+    } finally { client.release(); }
+  }));
+
+  /* ---------- Progreso de Casino Fortuna ---------- */
   app.put('/api/games/casino-fortuna/save', requireAuth, wrap(async (req, res) => {
     const { baseRevision = null, force = false } = req.body ?? {};
     let save;
@@ -168,9 +215,7 @@ export function createApp(pool, { allowedOrigins = '*', sessionDays = 90, trustP
       }
 
       // avatar
-      let avatarId = (await client.query('SELECT id FROM avatars WHERE slug = $1 AND is_active', [av.slug ?? 'oveja'])).rows[0]?.id
-        ?? (await client.query("SELECT id FROM avatars WHERE slug = 'oveja'")).rows[0]?.id
-        ?? (await client.query('SELECT id FROM avatars ORDER BY id LIMIT 1')).rows[0].id;
+      const avatarId = await resolveAvatarId(client, av.slug);
 
       // perfil (nombre único por juego, sin distinguir mayúsculas)
       let name = wantName;

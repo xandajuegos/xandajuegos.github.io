@@ -396,3 +396,11 @@ body[data-page="perfil"] { background: var(--sky); }
   .reveal { opacity: 1; transform: none; }
   html { scroll-behavior: auto; }
 }
+
+/* Modelos 3D de Casino Fortuna en el perfil */
+.cf3d-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; }
+.cf3d-card { background: #faf8ff; border-radius: 20px; padding: 10px 10px 12px; text-align: center; border: 3px solid #ece6ff; display: flex; flex-direction: column; gap: 2px; }
+.cf3d-card strong { font-weight: 900; font-size: .95rem; }
+.cf3d-card span { font-size: .82rem; opacity: .7; font-weight: 700; }
+.cf3d-stage { position: relative; height: 190px; border-radius: 14px; background: linear-gradient(180deg, #d9ecff, #f1e7ff); overflow: hidden; touch-action: pan-y; }
+.cf3d-stage .char-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; }

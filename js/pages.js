@@ -264,6 +264,19 @@
         }).join('') + '</div>';
       }
 
+      /* Colección con modelos 3D (personajes y skins) */
+      function whenCf3d(fn) {
+        if (XA.cf3d) fn(XA.cf3d); else window.addEventListener('cf3d-ready', function () { fn(XA.cf3d); }, { once: true });
+      }
+      function collection(title, items, skinMode) {
+        if (!items.length) return '<h3 style="font-size:.9rem;margin:22px 0 10px">' + title + '</h3><p class="note">Aún no tienes ninguno.</p>';
+        return '<h3 style="font-size:.9rem;margin:22px 0 10px">' + title + ' (' + items.length + ')</h3><div class="cf3d-grid">' + items.map(function (it) {
+          var cn = XA.cfChars[it.char] || it.char, sn = it.skin ? (XA.cfSkins[it.skin] || it.skin) : '';
+          var label = skinMode ? '<strong>' + esc(cn) + '</strong><span>' + esc(sn) + '</span>' : '<strong>' + esc(cn) + '</strong><span>' + (sn ? 'Skin: ' + esc(sn) : 'Sin skin') + '</span>';
+          return '<div class="cf3d-card"><div class="cf3d-stage" data-c="' + esc(it.char) + '"' + (it.skin ? ' data-s="' + esc(it.skin) + '"' : '') + (skinMode ? ' data-sm="1"' : '') + '></div>' + label + '</div>';
+        }).join('') + '</div>';
+      }
+
       function drawGame(g) {
         var box = $('#p-game'), head = '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px"><h2 class="h2" style="margin:0;font-size:1.05rem">' + XA.games[g].name + '</h2></div>';
         $$('#p-tabs .tab').forEach(function (t) { t.classList.toggle('on', t.getAttribute('data-g') === g); });
@@ -280,9 +293,13 @@
           '<div class="stat-grid"><div class="stat"><b><span class="coin"></span> ' + XA.num(p.coins) + '</b>Monedas</div>' +
           '<div class="stat"><b>' + XA.num(p.chips) + '</b>Fichas</div>' +
           '<div class="stat"><b id="p-rank">—</b>Posición mundial</div></div>' +
-          list('Mis personajes', p.characters, XA.cfChars) +
-          list('Mis skins', p.skins, { chars: XA.cfChars, skins: XA.cfSkins }, true) +
+          collection('Mis personajes', p.characters.map(function (c) { return { char: c, skin: p.equipped && p.equipped[c] && p.skins.indexOf(c + ':' + p.equipped[c]) >= 0 ? p.equipped[c] : null }; }), false) +
+          collection('Mis skins', p.skins.map(function (id) { var q = id.split(':'); return { char: q[0], skin: q[1] }; }), true) +
           '<p class="note" style="margin-top:18px">Última sincronización: ' + (p.updatedAt ? new Date(p.updatedAt).toLocaleString('es-MX') : '—') + '</p>';
+        $$('.cf3d-stage', box).forEach(function (st) {
+          var c = st.getAttribute('data-c'), sk = st.getAttribute('data-s') || null, small = st.hasAttribute('data-sm');
+          whenCf3d(function (api) { if (st.isConnected) api.mount(st, c, sk, { zoom: small ? 1.15 : 1, platform: !small }); });
+        });
         XA.leaderboard('casino-fortuna', 'siempre').then(function (r) {
           var el = $('#p-rank'); if (el && r.me) el.textContent = '#' + r.me.position;
         });

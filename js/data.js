@@ -210,6 +210,8 @@
         chips: pr.chips || 0,
         characters: (d.characters && d.characters.unlocked) || [],
         skins: (d.skins && d.skins.owned) || [],
+        equipped: (d.skins && d.skins.equipped) || {},
+        selected: (d.selection && d.selection.character) || null,
         updatedAt: saveRes.updatedAt
       };
     }

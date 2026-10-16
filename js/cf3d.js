@@ -19,7 +19,7 @@ function mount(el, charId, skin, opts) {
     var my = ++token;
     createCharacterViewer(el, { modelUrl: MODELS[charId] || '', accent: accent, charId: charId, skin: skin || null, platform: opts.platform !== false, zoom: opts.zoom || 1 })
       .then(function (v) { if (my !== token || !el.isConnected) { v.dispose(); return; } viewer = v; })
-      .catch(function () { token = 0; });
+      .catch(function (err) { token = 0; console.error('Modelo 3D', charId, err); el.innerHTML = '<p class="note" style="padding:14px;font-size:.78rem">No se pudo dibujar el modelo 3D (' + (err && err.message || err) + ').</p>'; });
   }
   function off() { token = 0; if (viewer) { viewer.dispose(); viewer = null; } el.querySelectorAll('canvas').forEach(function (c) { c.remove(); }); }
   if ('IntersectionObserver' in window) {

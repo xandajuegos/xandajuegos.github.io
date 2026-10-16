@@ -265,8 +265,12 @@
       }
 
       /* Colección con modelos 3D (personajes y skins) */
-      function whenCf3d(fn) {
-        if (XA.cf3d) fn(XA.cf3d); else window.addEventListener('cf3d-ready', function () { fn(XA.cf3d); }, { once: true });
+      var cf3dLoad = null;
+      function whenCf3d(fn, onFail) {
+        if (XA.cf3d) return fn(XA.cf3d);
+        // Se carga el módulo desde aquí (ruta relativa a js/pages.js), sin depender de otra etiqueta en el HTML.
+        cf3dLoad = cf3dLoad || import('./cf3d.js').then(function () { return XA.cf3d; });
+        cf3dLoad.then(fn).catch(function (err) { console.error('No se pudieron cargar los modelos 3D:', err); if (onFail) onFail(err); });
       }
       function collection(title, items, skinMode) {
         if (!items.length) return '<h3 style="font-size:.9rem;margin:22px 0 10px">' + title + '</h3><p class="note">Aún no tienes ninguno.</p>';
@@ -298,7 +302,8 @@
           '<p class="note" style="margin-top:18px">Última sincronización: ' + (p.updatedAt ? new Date(p.updatedAt).toLocaleString('es-MX') : '—') + '</p>';
         $$('.cf3d-stage', box).forEach(function (st) {
           var c = st.getAttribute('data-c'), sk = st.getAttribute('data-s') || null, small = st.hasAttribute('data-sm');
-          whenCf3d(function (api) { if (st.isConnected) api.mount(st, c, sk, { zoom: small ? 1.15 : 1, platform: !small }); });
+          whenCf3d(function (api) { if (st.isConnected) api.mount(st, c, sk, { zoom: small ? 1.15 : 1, platform: !small }); },
+            function (err) { st.innerHTML = '<p class="note" style="padding:14px;font-size:.78rem">No se pudo cargar el modelo 3D (' + esc(err && err.message || err) + '). Revisa que exista js/cf3d.js y la carpeta js/game3d/.</p>'; });
         });
         XA.leaderboard('casino-fortuna', 'siempre').then(function (r) {
           var el = $('#p-rank'); if (el && r.me) el.textContent = '#' + r.me.position;

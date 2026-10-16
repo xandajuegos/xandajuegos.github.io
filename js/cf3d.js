@@ -1,12 +1,8 @@
 // Modelos 3D de Casino Fortuna dentro del sitio. Reutiliza tal cual el motor del juego (js/game3d/).
-// Los .glb de los personajes van en la carpeta "models/" (char_oveja.glb, char_perro.glb, ...).
-// Zorro y Jirafa no tienen .glb: se construyen en código. Si falta un .glb, se usa el modelo de cubos.
 import { createCharacterViewer } from './game3d/character3d.js';
 
-const MODELS = {
-  oveja: 'models/char_oveja.glb', perro: 'models/char_perro.glb', gato: 'models/char_gato.glb',
-  borrego: 'models/char_borrego.glb', vaca: 'models/char_vaca.glb', zorro: '', jirafa: ''
-};
+// Sin .glb: todos los personajes se construyen en código (modelos de cubos), así no hace falta copiar archivos.
+const MODELS = {};
 const ACCENT = { oveja: '#35c6ff', perro: '#ffd23f', gato: '#b266ff', borrego: '#ff4b63', vaca: '#4be06a', zorro: '#ff8a2a', jirafa: '#ffc93d' };
 const RARITY = { crupier: '#4be06a', chef: '#4be06a', pirata: '#35a8ff', cumple: '#35a8ff', real: '#b266ff', astronauta: '#b266ff', mago: '#ff4b63', fortuna: '#ffd23f' };
 

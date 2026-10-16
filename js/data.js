@@ -153,7 +153,7 @@
   }
 
   /* Catálogo de Casino Fortuna (nombres para mostrar lo que trae el guardado) */
-  XA.cfChars = { oveja: 'Oveja', perro: 'Perro', gato: 'Gato', borrego: 'Borrego', vaca: 'Vaca' };
+  XA.cfChars = { oveja: 'Oveja', perro: 'Perro', gato: 'Gato', borrego: 'Borrego', vaca: 'Vaca', zorro: 'Zorro', jirafa: 'Jirafa' };
   XA.cfSkins = { crupier: 'Crupier', real: 'Real', chef: 'Chef', pirata: 'Pirata', mago: 'Mago', fortuna: 'De la fortuna', astronauta: 'Astronauta', cumple: 'De cumpleaños' };
 
   /* Fotos de perfil que existen en el juego */
@@ -195,7 +195,8 @@
   }
 
   function buildUser(apiUser, saveRes) {
-    var u = { id: apiUser.id, email: apiUser.email, playerName: nameFromEmail(apiUser.email), avatar: 'zorro', game: null };
+    var u = { id: apiUser.id, email: apiUser.email, playerName: nameFromEmail(apiUser.email), avatar: 'zorro', game: null,
+      birthday: apiUser.birthday || null, birthdayEditableFrom: apiUser.birthdayEditableFrom || null };
     // El perfil (nombre y foto) puede existir aunque el juego aún no haya sincronizado su progreso.
     if (saveRes && (saveRes.exists || saveRes.profile)) {
       var p = saveRes.profile || {};
@@ -291,6 +292,19 @@
           if (currentUser) {
             currentUser.playerName = (r && r.profile && r.profile.name) || name;
             currentUser.avatar = av;
+            save(USER_KEY, currentUser);
+          }
+          return { user: currentUser };
+        }).catch(function (e) { return { error: translateError(e) }; });
+    },
+
+    /* Guarda el cumpleaños (solo mes y día). Devuelve { user } o { error } */
+    setBirthday: function (month, day) {
+      return request('/me/birthday', { method: 'PUT', body: JSON.stringify({ month: month, day: day }) })
+        .then(function (r) {
+          if (currentUser) {
+            currentUser.birthday = r.birthday;
+            currentUser.birthdayEditableFrom = r.birthdayEditableFrom || null;
             save(USER_KEY, currentUser);
           }
           return { user: currentUser };

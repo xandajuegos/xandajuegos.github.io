@@ -50,6 +50,11 @@
     return wrap;
   }
 
+  /* Cumpleaños: selector de mes y día */
+  var MONTHS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+  var MDAYS = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  function birthdayText(b) { return b ? b.day + ' de ' + MONTHS[b.month - 1] : ''; }
+
   function gameOf(page) { return page.replace('tienda-', ''); }
 
   XA.pages = {
@@ -245,7 +250,7 @@
         '<div class="tabs mt" id="p-tabs"><button class="tab" data-g="casi-perfecto" type="button">Casi Perfecto</button><button class="tab on" data-g="casino-fortuna" type="button">Casino Fortuna</button></div>' +
         '<div class="card" id="p-game"></div>';
       $('#p-head h1').textContent = u.playerName;
-      $('#p-mail').textContent = u.email;
+      $('#p-mail').textContent = u.email + (u.birthday ? ' · Cumpleaños: ' + birthdayText(u.birthday) : '');
       $('#p-av').appendChild(XA.avatar(u.avatar, 112));
       $('#p-out').addEventListener('click', function () { XA.auth.logout(); location.href = 'index.html'; });
 
@@ -290,7 +295,28 @@
         var f = mk('<form novalidate><h3>Editar perfil</h3>' +
           '<div class="field"><label for="e-name">Nombre de jugador</label><input class="input" id="e-name" maxlength="16" value="' + esc(u.playerName) + '"><div class="err" id="e-err"></div></div>' +
           '<div class="field"><label>Foto de perfil</label><div id="e-av"></div></div>' +
+          '<div class="field"><label for="e-bm">Cumpleaños</label><div style="display:flex;gap:10px"><select class="input" id="e-bd" aria-label="Día" style="flex:1"></select><select class="input" id="e-bm" aria-label="Mes" style="flex:2"></select></div>' +
+          '<p class="note" id="e-bnote" style="margin-top:6px"></p><div class="err" id="e-berr"></div></div>' +
           '<button class="btn btn-pink btn-block" type="submit">Guardar cambios</button></form>');
+        /* cumpleaños: el año no se pide; solo sirve para las skins de cumpleaños del juego */
+        var bm = $('#e-bm', f), bd = $('#e-bd', f), bnote = $('#e-bnote', f);
+        var locked = !!(u.birthday && u.birthdayEditableFrom && new Date(u.birthdayEditableFrom).getTime() > Date.now());
+        bm.innerHTML = '<option value="">Mes</option>' + MONTHS.map(function (n, i) { return '<option value="' + (i + 1) + '">' + n.charAt(0).toUpperCase() + n.slice(1) + '</option>'; }).join('');
+        function fillDays() {
+          var m = +bm.value, keep = bd.value, max = m ? MDAYS[m - 1] : 31, h = '<option value="">Día</option>';
+          for (var d = 1; d <= max; d++) h += '<option value="' + d + '">' + d + '</option>';
+          bd.innerHTML = h;
+          if (keep && +keep <= max) bd.value = keep;
+        }
+        bm.addEventListener('change', fillDays);
+        fillDays();
+        if (u.birthday) { bm.value = u.birthday.month; fillDays(); bd.value = u.birthday.day; }
+        if (locked) {
+          bm.disabled = bd.disabled = true;
+          bnote.textContent = 'Tu cumpleaños ya está guardado. Podrás cambiarlo a partir del ' + new Date(u.birthdayEditableFrom).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' }) + '.';
+        } else {
+          bnote.textContent = 'En tu cumpleaños el juego te regala las skins de cumpleaños. Solo guardamos el día y el mes, y después de guardarlo solo podrás cambiarlo una vez al año.';
+        }
         $('#e-av', f).appendChild(avatarPicker('eav', u.avatar));
         var m = XA.modal(f);
         f.addEventListener('submit', function (e) {
@@ -303,9 +329,20 @@
           // Si la foto actual es del juego (no está en el selector), se conserva.
           var chosen = f.querySelector('input[name=eav]:checked');
           var av = chosen ? chosen.value : u.avatar;
+          var berr = $('#e-berr', f); berr.textContent = '';
+          var wantB = !locked && bm.value && bd.value ? { month: +bm.value, day: +bd.value } : null;
+          if (!locked && (bm.value || bd.value) && !wantB) { berr.textContent = 'Elige el día y el mes.'; return; }
+          var changedB = wantB && (!u.birthday || u.birthday.month !== wantB.month || u.birthday.day !== wantB.day);
           btn.disabled = true; btn.textContent = 'Guardando…';
           XA.auth.update({ playerName: nm, avatar: av }).then(function (r) {
             if (r.error) { err.textContent = r.error; btn.disabled = false; btn.textContent = 'Guardar cambios'; return; }
+            if (!changedB) return r;
+            return XA.auth.setBirthday(wantB.month, wantB.day).then(function (rb) {
+              if (rb.error) { berr.textContent = 'Tu perfil se guardó, pero el cumpleaños no: ' + rb.error; btn.disabled = false; btn.textContent = 'Guardar cambios'; return null; }
+              return rb;
+            });
+          }).then(function (r) {
+            if (!r) return;
             XA.toast('Perfil actualizado', 'ok');
             m.close();
             setTimeout(function () { location.reload(); }, 500);

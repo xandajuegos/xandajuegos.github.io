@@ -404,3 +404,7 @@ body[data-page="perfil"] { background: var(--sky); }
 .cf3d-card span { font-size: .82rem; opacity: .7; font-weight: 700; }
 .cf3d-stage { position: relative; height: 190px; border-radius: 14px; background: linear-gradient(180deg, #d9ecff, #f1e7ff); overflow: hidden; touch-action: pan-y; }
 .cf3d-stage .char-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; }
+
+.cf3d-card.pick { cursor: pointer; transition: transform .15s, border-color .15s, box-shadow .15s; }
+.cf3d-card.pick:hover { transform: translateY(-3px); }
+.cf3d-card.pick.sel { border-color: #7c4dff; box-shadow: 0 0 0 3px rgba(124, 77, 255, .25); }

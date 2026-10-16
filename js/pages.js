@@ -277,7 +277,7 @@
         return '<h3 style="font-size:.9rem;margin:22px 0 10px">' + title + ' (' + items.length + ')</h3><div class="cf3d-grid">' + items.map(function (it) {
           var cn = XA.cfChars[it.char] || it.char, sn = it.skin ? (XA.cfSkins[it.skin] || it.skin) : '';
           var label = skinMode ? '<strong>' + esc(cn) + '</strong><span>' + esc(sn) + '</span>' : '<strong>' + esc(cn) + '</strong><span>' + (sn ? 'Skin: ' + esc(sn) : 'Sin skin') + '</span>';
-          return '<div class="cf3d-card"><div class="cf3d-stage" data-c="' + esc(it.char) + '"' + (it.skin ? ' data-s="' + esc(it.skin) + '"' : '') + (skinMode ? ' data-sm="1"' : '') + '></div>' + label + '</div>';
+          return '<div class="cf3d-card' + (skinMode ? '' : ' pick') + '"' + (skinMode ? '' : ' data-pick="' + esc(it.char) + '" tabindex="0" role="button"') + '><div class="cf3d-stage" data-c="' + esc(it.char) + '"' + (it.skin ? ' data-s="' + esc(it.skin) + '"' : '') + (skinMode ? ' data-sm="1"' : '') + '></div>' + label + '</div>';
         }).join('') + '</div>';
       }
 
@@ -298,13 +298,36 @@
           '<div class="stat"><b>' + XA.num(p.chips) + '</b>Fichas</div>' +
           '<div class="stat"><b id="p-rank">—</b>Posición mundial</div></div>' +
           collection('Mis personajes', p.characters.map(function (c) { return { char: c, skin: p.equipped && p.equipped[c] && p.skins.indexOf(c + ':' + p.equipped[c]) >= 0 ? p.equipped[c] : null }; }), false) +
-          collection('Mis skins', p.skins.map(function (id) { var q = id.split(':'); return { char: q[0], skin: q[1] }; }), true) +
+          '<div id="cf-skins"></div>' +
           '<p class="note" style="margin-top:18px">Última sincronización: ' + (p.updatedAt ? new Date(p.updatedAt).toLocaleString('es-MX') : '—') + '</p>';
-        $$('.cf3d-stage', box).forEach(function (st) {
-          var c = st.getAttribute('data-c'), sk = st.getAttribute('data-s') || null, small = st.hasAttribute('data-sm');
-          whenCf3d(function (api) { if (st.isConnected) api.mount(st, c, sk, { zoom: small ? 1.15 : 1, platform: !small }); },
-            function (err) { st.innerHTML = '<p class="note" style="padding:14px;font-size:.78rem">No se pudo cargar el modelo 3D (' + esc(err && err.message || err) + '). Revisa que exista js/cf3d.js y la carpeta js/game3d/.</p>'; });
+        var picked = null;
+        function mountStages(root, small, bucket) {
+          $$('.cf3d-stage', root).forEach(function (st) {
+            var c = st.getAttribute('data-c'), sk = st.getAttribute('data-s') || null;
+            whenCf3d(function (api) { if (st.isConnected) bucket.push(api.mount(st, c, sk, { zoom: small ? 1.15 : 1, platform: !small })); },
+              function (err) { st.innerHTML = '<p class="note" style="padding:14px;font-size:.78rem">No se pudo cargar el modelo 3D (' + esc(err && err.message || err) + '). Revisa que exista js/cf3d.js y la carpeta js/game3d/.</p>'; });
+          });
+        }
+        /* Skins del personaje elegido */
+        var skinsBox = $('#cf-skins', box), skinBucket = [];
+        function drawSkins() {
+          skinBucket.forEach(function (d) { d(); }); skinBucket = [];
+          if (!picked) { skinsBox.innerHTML = '<h3 style="font-size:.9rem;margin:22px 0 10px">Mis skins</h3><p class="note">Toca un personaje para ver sus skins.</p>'; return; }
+          var mine = p.skins.filter(function (id) { return id.split(':')[0] === picked; }).map(function (id) { return { char: picked, skin: id.split(':')[1] }; });
+          skinsBox.innerHTML = collection('Skins de ' + (XA.cfChars[picked] || picked), mine, true);
+          mountStages(skinsBox, true, skinBucket);
+        }
+        $$('.cf3d-card[data-pick]', box).forEach(function (card) {
+          card.addEventListener('click', function () {
+            var c = card.getAttribute('data-pick');
+            picked = picked === c ? null : c;
+            $$('.cf3d-card[data-pick]', box).forEach(function (x) { x.classList.toggle('sel', x.getAttribute('data-pick') === picked); });
+            drawSkins();
+            if (picked && skinsBox.scrollIntoView) skinsBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          });
         });
+        mountStages(box.querySelector('.cf3d-grid'), false, []);
+        drawSkins();
         XA.leaderboard('casino-fortuna', 'siempre').then(function (r) {
           var el = $('#p-rank'); if (el && r.me) el.textContent = '#' + r.me.position;
         });

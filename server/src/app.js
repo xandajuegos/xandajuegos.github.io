@@ -126,8 +126,54 @@ export function createApp(pool, { allowedOrigins = '*', sessionDays = 90, trustP
     res.sendStatus(204);
   }));
 
+  /* ---------- Cumpleaños (solo mes y día; sirve para las skins de cumpleaños del juego) ---------- */
+  const DAYS_IN_MONTH = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  const BIRTHDAY_LOCK_MS = 365 * 86400000;   // después de guardarlo, solo se puede cambiar una vez al año
+  const BIRTHDAY_GRACE_MS = 3600000;         // ...salvo la primera hora (para corregir un error al escribirlo)
+
+  // Si la base de datos aún no tiene las columnas (falta correr la migración), devuelve null y todo sigue funcionando.
+  const loadBirthday = async (db, userId) => {
+    try {
+      const r = (await db.query('SELECT birth_month, birth_day, birthday_changed_at FROM users WHERE id = $1', [userId])).rows[0];
+      if (!r) return null;
+      const changed = r.birthday_changed_at ? new Date(r.birthday_changed_at) : null;
+      return {
+        month: r.birth_month, day: r.birth_day, changedAt: changed,
+        birthday: r.birth_month && r.birth_day ? { month: r.birth_month, day: r.birth_day } : null,
+        editableFrom: changed ? new Date(changed.getTime() + BIRTHDAY_LOCK_MS).toISOString() : null,
+      };
+    } catch (e) {
+      if (e.code === '42703') return null;
+      throw e;
+    }
+  };
+
   app.get('/api/me', requireAuth, wrap(async (req, res) => {
-    res.json({ user: { id: req.user.id, email: req.user.email } });
+    const b = await loadBirthday(pool, req.user.id);
+    res.json({ user: { id: req.user.id, email: req.user.email, birthday: b?.birthday ?? null, birthdayEditableFrom: b?.birthday ? b.editableFrom : null } });
+  }));
+
+  app.put('/api/me/birthday', requireAuth, profileLimit((r) => 'bday:' + r.ip), wrap(async (req, res) => {
+    const month = Number(req.body?.month), day = Number(req.body?.day);
+    if (!Number.isInteger(month) || month < 1 || month > 12 || !Number.isInteger(day) || day < 1 || day > DAYS_IN_MONTH[month - 1]) {
+      throw fail(400, 'invalid_birthday', 'Elige un día y un mes válidos.');
+    }
+    const cur = await loadBirthday(pool, req.user.id);
+    if (!cur) throw fail(503, 'birthday_unavailable', 'El cumpleaños aún no está disponible en el servidor.');
+    if (cur.birthday && cur.birthday.month === month && cur.birthday.day === day) {
+      return res.json({ birthday: cur.birthday, birthdayEditableFrom: cur.editableFrom });
+    }
+    if (cur.birthday && cur.changedAt) {
+      const age = Date.now() - cur.changedAt.getTime();
+      if (age > BIRTHDAY_GRACE_MS && age < BIRTHDAY_LOCK_MS) {
+        throw fail(403, 'birthday_locked', 'Tu cumpleaños ya está guardado. Podrás cambiarlo a partir del ' + new Date(cur.editableFrom).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' }) + '.');
+      }
+    }
+    const row = (await pool.query(
+      `UPDATE users SET birth_month = $2, birth_day = $3, birthday_changed_at = CASE WHEN birthday_changed_at IS NULL OR $4 THEN now() ELSE birthday_changed_at END
+       WHERE id = $1 RETURNING birthday_changed_at`,
+      [req.user.id, month, day, !!(cur.birthday && cur.changedAt && Date.now() - cur.changedAt.getTime() >= BIRTHDAY_LOCK_MS)])).rows[0];
+    res.json({ birthday: { month, day }, birthdayEditableFrom: new Date(new Date(row.birthday_changed_at).getTime() + BIRTHDAY_LOCK_MS).toISOString() });
   }));
 
   /* ---------- Perfil de Casino Fortuna ---------- */

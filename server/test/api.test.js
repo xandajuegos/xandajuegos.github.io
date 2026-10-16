@@ -14,7 +14,7 @@ before(async () => {
   epg = new EmbeddedPostgres({ databaseDir: '/tmp/xj-test-pg-' + process.pid, user: 'postgres', password: 'pw', port: 54331, persistent: false, onLog: () => {}, onError: () => {} });
   await epg.initialise(); await epg.start(); await epg.createDatabase('xj');
   pool = new pg.Pool({ connectionString: 'postgres://postgres:pw@localhost:54331/xj' });
-  for (const f of ['schema.sql', 'seed.sql', 'migration-casino-fortuna.sql', 'migration-casino-fortuna.sql']) await pool.query(await readFile(dbDir + f, 'utf8'));
+  for (const f of ['schema.sql', 'seed.sql', 'migration-casino-fortuna.sql', 'migration-casino-fortuna.sql', 'migration-cumpleanos.sql', 'migration-cumpleanos.sql']) await pool.query(await readFile(dbDir + f, 'utf8'));
   const app = createApp(pool, { allowedOrigins: '*' });
   await new Promise((r) => { server = app.listen(0, r); });
   base = 'http://localhost:' + server.address().port;
@@ -225,4 +225,32 @@ test('PUT /api/me/profile: nombre repetido devuelve 409', async () => {
   const dup = await call2('PUT', '/api/me/profile', { name: 'nombreunico', avatar: { type: 'preset', id: 'rana' } }, t2);
   assert.equal(dup.status, 409);
   assert.equal(dup.body.error.code, 'name_taken');
+});
+
+test('cumpleaños: validación, guardado y bloqueo de cambios', async () => {
+  const t = (await reg2('cumple@ejemplo.com')).body.token;
+  let me = await call2('GET', '/api/me', null, t);
+  assert.equal(me.body.user.birthday, null);
+  assert.equal((await call2('PUT', '/api/me/birthday', { month: 2, day: 30 }, t)).body.error.code, 'invalid_birthday');
+  assert.equal((await call2('PUT', '/api/me/birthday', { month: 13, day: 1 }, t)).status, 400);
+  assert.equal((await call2('PUT', '/api/me/birthday', { month: 'x', day: 1 }, t)).status, 400);
+  assert.equal((await call2('PUT', '/api/me/birthday', { month: 3, day: 9 })).status, 401);
+  const ok = await call2('PUT', '/api/me/birthday', { month: 2, day: 29 }, t);
+  assert.equal(ok.status, 200);
+  assert.deepEqual(ok.body.birthday, { month: 2, day: 29 });
+  me = await call2('GET', '/api/me', null, t);
+  assert.deepEqual(me.body.user.birthday, { month: 2, day: 29 });
+  // en la primera hora se puede corregir
+  assert.equal((await call2('PUT', '/api/me/birthday', { month: 3, day: 9 }, t)).status, 200);
+  // pasada la hora queda bloqueado un año
+  await pool.query("UPDATE users SET birthday_changed_at = now() - interval '2 hours' WHERE email = 'cumple@ejemplo.com'");
+  const lock = await call2('PUT', '/api/me/birthday', { month: 5, day: 5 }, t);
+  assert.equal(lock.status, 403);
+  assert.equal(lock.body.error.code, 'birthday_locked');
+  assert.equal((await call2('PUT', '/api/me/birthday', { month: 3, day: 9 }, t)).status, 200); // mismo valor: no falla
+  // después de un año sí
+  await pool.query("UPDATE users SET birthday_changed_at = now() - interval '366 days' WHERE email = 'cumple@ejemplo.com'");
+  assert.equal((await call2('PUT', '/api/me/birthday', { month: 5, day: 5 }, t)).status, 200);
+  me = await call2('GET', '/api/me', null, t);
+  assert.deepEqual(me.body.user.birthday, { month: 5, day: 5 });
 });

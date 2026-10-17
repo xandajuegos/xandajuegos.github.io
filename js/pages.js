@@ -401,6 +401,7 @@
 
   /* ---------- tienda ---------- */
   function shop(gid) {
+    if (gid === 'casino-fortuna') return shopCF();
     var g = XA.games[gid], u = XA.auth.current(), box = $('#packs');
     var bal = $('#balance');
     bal.innerHTML = !u ? 'Inicia sesión para ver tu saldo'
@@ -416,6 +417,53 @@
         '<button class="btn btn-pink btn-block" type="button">' + XA.money(p.price) + '</button></article>');
       $('button', card).addEventListener('click', function () { checkout(g, p, total); });
       box.appendChild(card);
+    });
+  }
+
+  function shopCF() {
+    var g = XA.games['casino-fortuna'], u = XA.auth.current();
+    var cg = u && u.game;
+    $('#balance').innerHTML = !u ? 'Inicia sesión para ver tu saldo'
+      : cg ? 'Tus monedas: <b><span class="coin"></span> ' + XA.num(cg.coins) + '</b> &nbsp; Tus fichas: <b><span class="chip-dot"></span> ' + XA.num(cg.chips) + '</b>'
+      : 'Aún no hay saldo sincronizado en tu cuenta';
+    function card(p, kind, i) {
+      var isCoin = kind === 'coins', amount = isCoin ? p.coins : p.chips;
+      var price = isCoin ? XA.money(p.price) : '<span class="coin"></span> ' + XA.num(p.price);
+      var c = mk('<article class="card pack hover reveal' + (p.tag ? ' popular' : '') + '" style="transition-delay:' + (i * 0.07) + 's">' +
+        (p.tag ? '<div class="ribbon">' + esc(p.tag).toUpperCase() + '</div>' : '') +
+        '<div class="pack-img"><img src="' + p.img + '" alt="' + esc(p.name) + '" draggable="false"></div>' +
+        '<h3>' + esc(p.name) + '</h3><div class="amount"><span class="' + (isCoin ? 'coin' : 'chip-dot') + '"></span> ' + XA.num(amount) + '</div>' +
+        '<div class="bonus none">&nbsp;</div>' +
+        '<button class="btn btn-pink btn-block" type="button">' + price + '</button></article>');
+      $('button', c).addEventListener('click', function () { checkoutCF(g, p, kind); });
+      return c;
+    }
+    XA.cfPacks.coins.forEach(function (p, i) { $('#packs').appendChild(card(p, 'coins', i)); });
+    XA.cfPacks.chips.forEach(function (p, i) { $('#chip-packs').appendChild(card(p, 'chips', i)); });
+  }
+  function checkoutCF(g, p, kind) {
+    var u = XA.auth.current(), isCoin = kind === 'coins';
+    var amount = isCoin ? p.coins : p.chips;
+    var have = u && u.game ? u.game.coins : 0;
+    var short = !isCoin && u && have < p.price;
+    var gift = isCoin ? '<span class="coin"></span>' : '<span class="chip-dot"></span>';
+    var cost = isCoin ? XA.money(p.price) + ' ' + XA.CURRENCY : '<span class="coin"></span> ' + XA.num(p.price) + ' monedas';
+    var f = mk('<div><h3>Confirmar compra</h3>' +
+      '<div class="sum"><div><strong>' + esc(p.name) + '</strong><div class="note">' + g.name + '</div></div><div style="text-align:right"><div>' + gift + ' <strong>' + XA.num(amount) + '</strong></div><div class="note">' + cost + '</div></div></div>' +
+      (u ? '<p class="note">' + (isCoin ? 'Las monedas' : 'Las fichas') + ' se abonarán al perfil de <strong>' + esc(u.playerName) + '</strong> en ' + g.name + '.</p>'
+        : '<p class="form-err" style="display:block">Necesitas iniciar sesión para comprar. Así sabemos a qué perfil abonar ' + (isCoin ? 'las monedas' : 'las fichas') + '.</p>') +
+      (short ? '<p class="form-err" style="display:block">No te alcanzan las monedas: tienes ' + XA.num(have) + ' y necesitas ' + XA.num(p.price) + '.</p>' : '') +
+      (isCoin ? '<label class="pay-opt"><input type="radio" name="pay" value="card" checked> Tarjeta de crédito o débito</label>' +
+        '<label class="pay-opt"><input type="radio" name="pay" value="paypal"> PayPal</label>' +
+        '<label class="pay-opt"><input type="radio" name="pay" value="store"> Pago en tiendas de conveniencia</label>' : '') +
+      (u ? '<button class="btn btn-pink btn-block btn-lg" type="button" id="pay-go" style="margin-top:14px"' + (short ? ' disabled' : '') + '>' + (isCoin ? 'Pagar ' + XA.money(p.price) : 'Canjear por ' + XA.num(p.price) + ' monedas') + '</button>'
+        : '<a class="btn btn-pink btn-block btn-lg" style="margin-top:14px" href="login.html?next=' + g.shop + '">Iniciar sesión</a>') +
+      '<p class="note center" style="margin:14px 0 0">Maqueta visual: no se realiza ningún cargo real.</p></div>');
+    var m = XA.modal(f);
+    var go = $('#pay-go', f);
+    if (go) go.addEventListener('click', function () {
+      go.disabled = true; go.textContent = 'Procesando…';
+      setTimeout(function () { m.close(); XA.toast('Esto es una maqueta: aquí se conectará el pago real.', 'ok'); }, 900);
     });
   }
   function checkout(g, p, total) {

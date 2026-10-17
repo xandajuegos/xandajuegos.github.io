@@ -64,6 +64,23 @@
     ]
   };
 
+
+  /* ---------- Casino Fortuna: monedas (MXN) y fichas (se pagan con monedas) ---------- */
+  XA.cfPacks = {
+    coins: [
+      { id: 'pack1', name: 'Pila de monedas', coins: 200, price: 15, img: 'img/casino-fortuna/monedas-pila.png' },
+      { id: 'pack2', name: 'Bolsa de monedas', coins: 500, price: 30, img: 'img/casino-fortuna/monedas-bolsa.png' },
+      { id: 'pack3', name: 'Cofre de monedas', coins: 1000, price: 50, img: 'img/casino-fortuna/monedas-cofre.png', tag: 'Popular' },
+      { id: 'pack4', name: 'Tesoro de monedas', coins: 2000, price: 80, img: 'img/casino-fortuna/monedas-tesoro.png' }
+    ],
+    chips: [
+      { id: 'chips1', name: 'Pila de fichas', chips: 400, price: 200, img: 'img/casino-fortuna/fichas-1.png' },
+      { id: 'chips2', name: 'Torre de fichas', chips: 1200, price: 500, img: 'img/casino-fortuna/fichas-2.png', tag: 'Popular' },
+      { id: 'chips3', name: 'Montón de fichas', chips: 2500, price: 1000, img: 'img/casino-fortuna/fichas-3.png' },
+      { id: 'chips4', name: 'Mina de fichas', chips: 5200, price: 2000, img: 'img/casino-fortuna/fichas-4.png', tag: 'Mejor valor' }
+    ]
+  };
+
   /* ---------- Casi Perfecto: mapas (EJEMPLO) ---------- */
   XA.maps = [
     { id: 'ciudad', name: 'Ciudad', desc: 'Rascacielos de cristal al atardecer.', bg: 'linear-gradient(#e9c28f,#a68bb5)', cost: 0 },

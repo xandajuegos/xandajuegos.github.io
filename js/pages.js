@@ -438,8 +438,17 @@
       $('button', c).addEventListener('click', function () { checkoutCF(g, p, kind); });
       return c;
     }
-    XA.cfPacks.coins.forEach(function (p, i) { $('#packs').appendChild(card(p, 'coins', i)); });
-    XA.cfPacks.chips.forEach(function (p, i) { $('#chip-packs').appendChild(card(p, 'chips', i)); });
+    var coinBox = $('#packs'), chipBox = $('#chip-packs');
+    coinBox.classList.add('p4');
+    if (!chipBox) { /* si el HTML es el viejo, crea la sección de fichas */
+      var sec = mk('<section class="sec lilac" style="padding-top:70px"><div class="wrap"><div class="sec-head center reveal"><span class="eyebrow pink">Fichas</span><h2 class="h2">Compra fichas con tus monedas</h2>' +
+        '<p class="lead">Las fichas se usan en las mesas. Se canjean con las monedas de tu perfil y necesitas iniciar sesión.</p></div><div class="packs p4" id="chip-packs"></div></div></section>');
+      var host = coinBox.closest('section');
+      host.parentNode.insertBefore(sec, host.nextSibling);
+      chipBox = $('#chip-packs');
+    }
+    XA.cfPacks.coins.forEach(function (p, i) { coinBox.appendChild(card(p, 'coins', i)); });
+    XA.cfPacks.chips.forEach(function (p, i) { chipBox.appendChild(card(p, 'chips', i)); });
   }
   function checkoutCF(g, p, kind) {
     var u = XA.auth.current(), isCoin = kind === 'coins';

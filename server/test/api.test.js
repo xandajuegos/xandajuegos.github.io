@@ -254,3 +254,23 @@ test('cumpleaños: validación, guardado y bloqueo de cambios', async () => {
   me = await call2('GET', '/api/me', null, t);
   assert.deepEqual(me.body.user.birthday, { month: 5, day: 5 });
 });
+
+test('compra de fichas con monedas: descuenta, abona, sube revisión y valida', async () => {
+  const r = await reg2('fichas@ejemplo.com'); const t = r.body.token;
+  // sin progreso guardado
+  assert.equal((await call2('POST', '/api/games/casino-fortuna/purchase-chips', { packId: 'chips1' }, t)).body.error.code, 'no_save');
+  assert.equal((await call2('POST', '/api/games/casino-fortuna/purchase-chips', { packId: 'chips1' })).status, 401);
+  const up = await call2('PUT', '/api/games/casino-fortuna/save', { baseRevision: null, data: save({ coins: 1200, chips: 700 }), profile: { name: 'Compradora', avatar: { type: 'preset', id: 'oveja' } } }, t);
+  assert.equal(up.status, 200);
+  assert.equal((await call2('POST', '/api/games/casino-fortuna/purchase-chips', { packId: 'no-existe' }, t)).body.error.code, 'invalid_pack');
+  const big = await call2('POST', '/api/games/casino-fortuna/purchase-chips', { packId: 'chips4' }, t);
+  assert.equal(big.status, 402); assert.equal(big.body.error.code, 'insufficient_coins');
+  const ok = await call2('POST', '/api/games/casino-fortuna/purchase-chips', { packId: 'chips2' }, t);   // 500 monedas -> 1200 fichas
+  assert.equal(ok.status, 200); assert.equal(ok.body.coins, 700); assert.equal(ok.body.chips, 1900); assert.equal(ok.body.revision, up.body.revision + 1);
+  const cur = await call2('GET', '/api/games/casino-fortuna/save', null, t);
+  assert.equal(cur.body.data.coins, 700); assert.equal(cur.body.data.chips, 1900);
+  assert.equal(cur.body.profile.coins, 700); assert.equal(cur.body.profile.chips, 1900);
+  // el juego con la revisión vieja detecta el cambio en lugar de pisarlo
+  const stale = await call2('PUT', '/api/games/casino-fortuna/save', { baseRevision: up.body.revision, data: save(), profile: { name: 'Compradora' } }, t);
+  assert.equal(stale.status, 409);
+});

@@ -337,6 +337,54 @@ export function createApp(pool, { allowedOrigins = '*', sessionDays = 90, trustP
     } finally { client.release(); }
   }));
 
+
+  /* ---------- Tienda: fichas a cambio de monedas ---------- */
+  // El servidor es la fuente de verdad del catálogo (el cliente solo manda el id del pack).
+  const CHIP_PACKS = {
+    chips1: { chips: 400, price: 200 },
+    chips2: { chips: 1200, price: 500 },
+    chips3: { chips: 2500, price: 1000 },
+    chips4: { chips: 5200, price: 2000 },
+  };
+  const shopLimit = limiter({ max: 30, windowMs: 60000 });
+
+  app.post('/api/games/casino-fortuna/purchase-chips', requireAuth, shopLimit((r) => 'shop:' + r.ip), wrap(async (req, res) => {
+    const pack = Object.hasOwn(CHIP_PACKS, req.body?.packId) ? CHIP_PACKS[req.body.packId] : null;
+    if (!pack) throw fail(400, 'invalid_pack', 'Ese pack de fichas no existe.');
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const p = await loadProfile(client, req.user.id, true);
+      if (!p || p.revision == null) throw fail(409, 'no_save', 'Aún no tienes progreso en Casino Fortuna. Abre el juego e inicia sesión una vez para sincronizarlo.');
+      const data = p.data || {};
+      const coins = Number.isFinite(Number(data.coins)) ? Number(data.coins) : Number(p.coins);
+      if (coins < pack.price) throw fail(402, 'insufficient_coins', `No te alcanzan las monedas: tienes ${coins} y necesitas ${pack.price}.`, { coins, needed: pack.price });
+
+      const next = { ...data, coins: coins - pack.price, chips: (Number(data.chips) || 0) + pack.chips };
+      const sv = (await client.query(
+        `UPDATE game_saves SET data = $2, revision = revision + 1, updated_at = now() WHERE profile_id = $1 RETURNING revision, updated_at`,
+        [p.id, next])).rows[0];
+      await client.query('UPDATE player_profiles SET coins = $2, chips = $3, updated_at = now() WHERE id = $1',
+        [p.id, next.coins, next.chips + (Number(next.escrow) || 0)]);
+
+      // ranking "Mayor fortuna": si las fichas totales superan su mejor marca, se actualiza
+      const total = next.chips + (Number(next.escrow) || 0);
+      const game = (await client.query('SELECT id FROM games WHERE slug = $1', [GAME_SLUG])).rows[0];
+      const best = (await client.query('SELECT score FROM best_scores WHERE profile_id = $1 AND game_id = $2', [p.id, game.id])).rows[0];
+      if (!best || total > Number(best.score)) {
+        await client.query(
+          `INSERT INTO best_scores (profile_id, game_id, score, achieved_at) VALUES ($1,$2,$3,now())
+           ON CONFLICT (profile_id, game_id) DO UPDATE SET score = EXCLUDED.score, achieved_at = now()`, [p.id, game.id, total]);
+      }
+      await client.query('COMMIT');
+      res.json({ coins: next.coins, chips: next.chips, revision: Number(sv.revision), updatedAt: sv.updated_at });
+    } catch (e) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw e;
+    } finally { client.release(); }
+  }));
+
   /* ---------- Ranking público ---------- */
   const optionalAuth = wrap(async (req, res, next) => {
     if (!/^Bearer (.+)$/.test(req.headers.authorization || '')) return next();

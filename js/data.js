@@ -259,7 +259,18 @@
       })();
       return initPromise;
     },
+    translateError: translateError,
     current: function () { return currentUser; },
+    /* Canjea monedas por fichas (el servidor valida el saldo y actualiza el progreso del juego) */
+    purchaseChips: function (packId) {
+      return request('/games/casino-fortuna/purchase-chips', { method: 'POST', body: JSON.stringify({ packId: packId }) }).then(function (r) {
+        if (currentUser && currentUser.game) {
+          currentUser.game.coins = r.coins; currentUser.game.chips = r.chips; currentUser.game.updatedAt = r.updatedAt;
+          save(USER_KEY, currentUser);
+        }
+        return r;
+      });
+    },
     _preview: function (u) { if (!currentUser) currentUser = u; },
 
     /* d = { email, password, playerName?, avatar? }

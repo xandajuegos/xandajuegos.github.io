@@ -472,8 +472,25 @@
     var go = $('#pay-go', f);
     if (go) go.addEventListener('click', function () {
       go.disabled = true; go.textContent = 'Procesando…';
-      setTimeout(function () { m.close(); XA.toast('Esto es una maqueta: aquí se conectará el pago real.', 'ok'); }, 900);
+      if (isCoin) { setTimeout(function () { m.close(); XA.toast('Esto es una maqueta: aquí se conectará el pago real.', 'ok'); }, 900); return; }
+      XA.auth.purchaseChips(p.id).then(function (r) {
+        m.close();
+        shopBalance();
+        XA.toast('¡Listo! +' + XA.num(p.chips) + ' fichas en tu cuenta.', 'ok');
+      }).catch(function (e) {
+        go.disabled = false; go.textContent = 'Canjear por ' + XA.num(p.price) + ' monedas';
+        var box = $('#buy-err', f);
+        if (!box) { box = mk('<p class="form-err" id="buy-err" style="display:block"></p>'); go.parentNode.insertBefore(box, go); }
+        box.textContent = e.code === 'insufficient_coins' ? e.message
+          : e.code === 'no_save' ? e.message
+          : XA.auth.translateError ? XA.auth.translateError(e) : e.message;
+        shopBalance();
+      });
     });
+  }
+  function shopBalance() {
+    var u = XA.auth.current(), cg = u && u.game, b = $('#balance');
+    if (b && cg) b.innerHTML = 'Tus monedas: <b><span class="coin"></span> ' + XA.num(cg.coins) + '</b> &nbsp; Tus fichas: <b><span class="chip-dot"></span> ' + XA.num(cg.chips) + '</b>';
   }
   function checkout(g, p, total) {
     var u = XA.auth.current();

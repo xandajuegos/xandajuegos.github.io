@@ -43,6 +43,8 @@ export function cleanSave(data) {
     coins: int(data.coins),
     chips: int(data.chips),
     escrow: int(data.escrow),
+    trophies: Object.fromEntries(Object.entries(trophies).slice(0, 20).map(([k, v]) => [k, int(v, 1e9)])),
+    maxTrophies: Object.fromEntries(Object.entries(obj(data.maxTrophies)).slice(0, 20).map(([k, v]) => [k, int(v, 1e9)])),
     characters: { ...chars, unlocked: strs(chars.unlocked, 50) },
     skins: { ...skins, owned: strs(skins.owned, 500), equipped: obj(skins.equipped) },
   };

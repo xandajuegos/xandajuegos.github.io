@@ -14,7 +14,7 @@ before(async () => {
   epg = new EmbeddedPostgres({ databaseDir: '/tmp/xj-test-pg-' + process.pid, user: 'postgres', password: 'pw', port: 54331, persistent: false, onLog: () => {}, onError: () => {} });
   await epg.initialise(); await epg.start(); await epg.createDatabase('xj');
   pool = new pg.Pool({ connectionString: 'postgres://postgres:pw@localhost:54331/xj' });
-  for (const f of ['schema.sql', 'seed.sql', 'migration-casino-fortuna.sql', 'migration-casino-fortuna.sql', 'migration-cumpleanos.sql', 'migration-cumpleanos.sql']) await pool.query(await readFile(dbDir + f, 'utf8'));
+  for (const f of ['schema.sql', 'seed.sql', 'migration-casino-fortuna.sql', 'migration-casino-fortuna.sql', 'migration-cumpleanos.sql', 'migration-cumpleanos.sql', 'migration-amigos.sql', 'migration-amigos.sql']) await pool.query(await readFile(dbDir + f, 'utf8'));
   const app = createApp(pool, { allowedOrigins: '*' });
   await new Promise((r) => { server = app.listen(0, r); });
   base = 'http://localhost:' + server.address().port;
@@ -273,4 +273,78 @@ test('compra de fichas con monedas: descuenta, abona, sube revisión y valida', 
   // el juego con la revisión vieja detecta el cambio en lugar de pisarlo
   const stale = await call2('PUT', '/api/games/casino-fortuna/save', { baseRevision: up.body.revision, data: save(), profile: { name: 'Compradora' } }, t);
   assert.equal(stale.status, 409);
+});
+
+const mkPlayer = async (email, name, trophies, chips = 500) => {
+  const t = (await reg2(email)).body.token;
+  const r = await call2('PUT', '/api/games/casino-fortuna/save', { baseRevision: null, data: save({ trophies, chips, coins: 10 }), profile: { name, avatar: { type: 'preset', id: 'perro' } } }, t);
+  assert.equal(r.status, 200);
+  return t;
+};
+const A = { auth: (t) => t };
+
+test('top mundial por juego: orden, empates, posición propia y validación', async () => {
+  const a = await mkPlayer('top1@ejemplo.com', 'TopUno', { blackjack: 300, poker: 5, ocho: 0, ruleta: 0 });
+  const b = await mkPlayer('top2@ejemplo.com', 'TopDos', { blackjack: 300, poker: 50, ocho: 0, ruleta: 0 });
+  const c = await mkPlayer('top3@ejemplo.com', 'TopTres', { blackjack: 120, poker: 0, ocho: 0, ruleta: 0 });
+  assert.equal((await call2('GET', '/api/games/casino-fortuna/top/ajedrez')).status, 404);
+  const pub = await call2('GET', '/api/games/casino-fortuna/top/blackjack');
+  assert.equal(pub.status, 200); assert.equal(pub.body.me, null);
+  const names = pub.body.entries.map((e) => e.name);
+  assert.ok(names.indexOf('TopUno') < names.indexOf('TopTres') && names.indexOf('TopDos') < names.indexOf('TopTres'));
+  const e1 = pub.body.entries.find((e) => e.name === 'TopUno'), e2 = pub.body.entries.find((e) => e.name === 'TopDos');
+  assert.equal(e1.rank, e2.rank);   // empate: misma posición
+  assert.equal(pub.body.entries.find((e) => e.name === 'TopTres').trophies, 120);
+  const mine = await call2('GET', '/api/games/casino-fortuna/top/poker', null, c);
+  assert.deepEqual(mine.body.me, { rank: null, trophies: 0 });
+  assert.equal(mine.body.entries.some((e) => e.name === 'TopTres'), false);   // 0 trofeos no aparece
+  const mine2 = await call2('GET', '/api/games/casino-fortuna/top/blackjack', null, c);
+  assert.equal(mine2.body.me.trophies, 120); assert.equal(mine2.body.entries.find((e) => e.name === 'TopTres').you, true);
+});
+
+test('amigos: solicitud, aceptar, orden por trofeos globales y eliminar', async () => {
+  const ana = await mkPlayer('am-ana@ejemplo.com', 'AmAna', { blackjack: 100, poker: 0, ocho: 0, ruleta: 0 }, 900);
+  const beto = await mkPlayer('am-beto@ejemplo.com', 'AmBeto', { blackjack: 500, poker: 200, ocho: 0, ruleta: 0 }, 50);
+  const cami = await mkPlayer('am-cami@ejemplo.com', 'AmCami', { blackjack: 50, poker: 0, ocho: 0, ruleta: 0 }, 20);
+  assert.equal((await call2('GET', '/api/friends')).status, 401);
+  assert.equal((await call2('POST', '/api/friends/requests', { name: 'x' }, ana)).body.error.code, 'invalid_name');
+  assert.equal((await call2('POST', '/api/friends/requests', { name: 'NoExisteJamas' }, ana)).body.error.code, 'player_not_found');
+  assert.equal((await call2('POST', '/api/friends/requests', { name: 'amana' }, ana)).body.error.code, 'self');
+  const rq = await call2('POST', '/api/friends/requests', { name: 'ambeto' }, ana);   // sin distinguir mayúsculas
+  assert.equal(rq.status, 201); assert.equal(rq.body.status, 'pending'); assert.equal(rq.body.name, 'AmBeto');
+  assert.equal((await call2('POST', '/api/friends/requests', { name: 'AmBeto' }, ana)).body.error.code, 'already_requested');
+  const bf = await call2('GET', '/api/friends', null, beto);
+  assert.equal(bf.body.incoming.length, 1); assert.equal(bf.body.incoming[0].name, 'AmAna'); assert.equal(bf.body.friends.length, 0);
+  assert.equal((await call2('GET', '/api/friends', null, ana)).body.outgoing[0].name, 'AmBeto');
+  // otra persona no puede aceptar ni cancelar la solicitud
+  assert.equal((await call2('POST', '/api/friends/requests/' + bf.body.incoming[0].id + '/accept', null, cami)).status, 404);
+  assert.equal((await call2('DELETE', '/api/friends/requests/' + bf.body.incoming[0].id, null, cami)).status, 404);
+  assert.equal((await call2('POST', '/api/friends/requests/no-es-uuid/accept', null, beto)).status, 404);
+  assert.equal((await call2('POST', '/api/friends/requests/' + bf.body.incoming[0].id + '/accept', null, beto)).status, 200);
+  // solicitud cruzada: Cami invita a Ana y Ana (que ya la tenía pendiente de Cami) la acepta al invitar
+  assert.equal((await call2('POST', '/api/friends/requests', { name: 'AmAna' }, cami)).body.status, 'pending');
+  assert.equal((await call2('POST', '/api/friends/requests', { name: 'AmCami' }, ana)).body.status, 'accepted');
+  const af = await call2('GET', '/api/friends', null, ana);
+  assert.deepEqual(af.body.friends.map((f) => f.name), ['AmBeto', 'AmCami']);   // por trofeos globales (700 y 50)
+  assert.deepEqual(af.body.friends.map((f) => f.trophies), [700, 50]);
+  assert.equal(af.body.friends[0].chips, 50); assert.equal(af.body.me.name, 'AmAna'); assert.equal(af.body.me.trophies, 100);
+  assert.equal(af.body.friends[0].avatar.type, 'preset');
+  assert.equal((await call2('POST', '/api/friends/requests', { name: 'AmBeto' }, ana)).body.error.code, 'already_friends');
+  // eliminar amigo
+  assert.equal((await call2('DELETE', '/api/friends/' + af.body.friends[1].userId, null, ana)).status, 200);
+  assert.equal((await call2('GET', '/api/friends', null, ana)).body.friends.length, 1);
+  assert.equal((await call2('GET', '/api/friends', null, cami)).body.friends.length, 0);
+});
+
+test('amigos: rechazar y cancelar solicitudes', async () => {
+  const d = await mkPlayer('am-d@ejemplo.com', 'AmDani', { blackjack: 1, poker: 0, ocho: 0, ruleta: 0 });
+  const e = await mkPlayer('am-e@ejemplo.com', 'AmEli', { blackjack: 1, poker: 0, ocho: 0, ruleta: 0 });
+  await call2('POST', '/api/friends/requests', { name: 'AmEli' }, d);
+  const inc = (await call2('GET', '/api/friends', null, e)).body.incoming[0];
+  assert.equal((await call2('DELETE', '/api/friends/requests/' + inc.id, null, e)).status, 200);   // rechaza
+  assert.equal((await call2('GET', '/api/friends', null, d)).body.outgoing.length, 0);
+  await call2('POST', '/api/friends/requests', { name: 'AmEli' }, d);
+  const out = (await call2('GET', '/api/friends', null, d)).body.outgoing[0];
+  assert.equal((await call2('DELETE', '/api/friends/requests/' + out.id, null, d)).status, 200);   // cancela
+  assert.equal((await call2('GET', '/api/friends', null, e)).body.incoming.length, 0);
 });

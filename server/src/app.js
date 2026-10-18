@@ -37,7 +37,7 @@ export function createApp(pool, { allowedOrigins = '*', sessionDays = 90, trustP
     if (origins.includes('*')) res.set('Access-Control-Allow-Origin', '*');
     else if (o && origins.includes(o)) { res.set('Access-Control-Allow-Origin', o); res.set('Vary', 'Origin'); }
     res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    res.set('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
+    res.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     res.set('Access-Control-Max-Age', '86400');
     res.set('X-Content-Type-Options', 'nosniff');
     res.set('Cache-Control', 'no-store');
@@ -391,6 +391,138 @@ export function createApp(pool, { allowedOrigins = '*', sessionDays = 90, trustP
     return requireAuth(req, res, next);
   });
   const PERIODS = { siempre: null, semana: '7 days', hoy: '1 day' };
+
+  /* ---------- Amigos (ligados a la cuenta, no al juego) ---------- */
+  const MAX_FRIENDS = 100;
+  const friendLimit = limiter({ max: 40, windowMs: 60000 });
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  // Foto para mostrar: preset o foto propia (las fotos enormes se cambian por la foto predefinida)
+  const avatarOut = (row, maxCustom = 120000) =>
+    row.avatar_custom && row.avatar_custom.length <= maxCustom ? { type: 'custom', data: row.avatar_custom } : { type: 'preset', id: row.avatar_slug };
+  const sumTrophies = (t) => (t && typeof t === 'object' && !Array.isArray(t)
+    ? Object.values(t).reduce((n, v) => n + Math.min(Math.max(Math.floor(Number(v)) || 0, 0), 1e9), 0) : 0);
+
+  // Datos públicos de jugadores del juego (por user_id): nombre, foto, fichas y trofeos globales.
+  const PLAYER_SQL = `
+    SELECT p.user_id, p.player_name, p.chips, p.avatar_custom, a.slug AS avatar_slug, s.data->'trophies' AS trophies
+    FROM player_profiles p JOIN avatars a ON a.id = p.avatar_id JOIN games g ON g.id = p.game_id
+    JOIN users u ON u.id = p.user_id LEFT JOIN game_saves s ON s.profile_id = p.id
+    WHERE g.slug = '${GAME_SLUG}' AND u.status = 'active'`;
+  const playerOut = (r) => ({ userId: r.user_id, name: r.player_name, avatar: avatarOut(r), chips: Number(r.chips), trophies: sumTrophies(r.trophies) });
+  const byTrophies = (a, b) => b.trophies - a.trophies || b.chips - a.chips || a.name.localeCompare(b.name);
+
+  app.get('/api/friends', requireAuth, wrap(async (req, res) => {
+    const rel = (await pool.query(
+      `SELECT id, requester_id, addressee_id, status FROM friendships WHERE requester_id = $1 OR addressee_id = $1`, [req.user.id])).rows;
+    const other = (r) => (r.requester_id === req.user.id ? r.addressee_id : r.requester_id);
+    const ids = [...new Set([req.user.id, ...rel.map(other)])];
+    const players = new Map((await pool.query(`${PLAYER_SQL} AND p.user_id = ANY($1::uuid[])`, [ids])).rows.map((r) => [r.user_id, playerOut(r)]));
+    const me = players.get(req.user.id) || null;
+    const friends = [], incoming = [], outgoing = [];
+    for (const r of rel) {
+      const pl = players.get(other(r));
+      if (!pl) continue;   // la otra cuenta aún no tiene perfil de juego (o fue suspendida)
+      if (r.status === 'accepted') friends.push(pl);
+      else if (r.addressee_id === req.user.id) incoming.push({ id: r.id, name: pl.name, avatar: pl.avatar });
+      else outgoing.push({ id: r.id, name: pl.name, avatar: pl.avatar });
+    }
+    friends.sort(byTrophies);
+    res.json({ me, friends, incoming, outgoing });
+  }));
+
+  app.post('/api/friends/requests', requireAuth, friendLimit((r) => 'fr:' + r.ip), wrap(async (req, res) => {
+    const name = String(req.body?.name ?? '').trim();
+    if (name.length < 3 || name.length > 16) throw fail(400, 'invalid_name', 'Escribe el nombre de jugador de tu amigo (3 a 16 caracteres).');
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const target = (await client.query(
+        `SELECT p.user_id, p.player_name FROM player_profiles p JOIN games g ON g.id = p.game_id JOIN users u ON u.id = p.user_id
+         WHERE g.slug = $1 AND u.status = 'active' AND lower(p.player_name) = lower($2)`, [GAME_SLUG, name])).rows[0];
+      if (!target) throw fail(404, 'player_not_found', 'No encontramos a ningún jugador con ese nombre.');
+      if (target.user_id === req.user.id) throw fail(400, 'self', 'Ese eres tú. Agrega a alguien más.');
+      // Evita que dos peticiones simultáneas de la misma pareja se crucen
+      await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [[req.user.id, target.user_id].sort().join(':')]);
+      const cnt = Number((await client.query(
+        `SELECT count(*) FROM friendships WHERE status = 'accepted' AND (requester_id = $1 OR addressee_id = $1)`, [req.user.id])).rows[0].count);
+      const ex = (await client.query(
+        `SELECT id, requester_id, status FROM friendships
+         WHERE (requester_id = $1 AND addressee_id = $2) OR (requester_id = $2 AND addressee_id = $1)`, [req.user.id, target.user_id])).rows[0];
+      let status = 'pending';
+      if (ex) {
+        if (ex.status === 'accepted') throw fail(409, 'already_friends', `${target.player_name} ya es tu amigo.`);
+        if (ex.requester_id === req.user.id) throw fail(409, 'already_requested', 'Ya le enviaste una solicitud. Espera a que la acepte.');
+        if (cnt >= MAX_FRIENDS) throw fail(409, 'friends_limit', `Llegaste al máximo de ${MAX_FRIENDS} amigos.`);
+        await client.query(`UPDATE friendships SET status = 'accepted', responded_at = now() WHERE id = $1`, [ex.id]);   // ya te había invitado: se aceptan mutuamente
+        status = 'accepted';
+      } else {
+        if (cnt >= MAX_FRIENDS) throw fail(409, 'friends_limit', `Llegaste al máximo de ${MAX_FRIENDS} amigos.`);
+        await client.query(`INSERT INTO friendships (requester_id, addressee_id) VALUES ($1, $2)`, [req.user.id, target.user_id]);
+      }
+      await client.query('COMMIT');
+      res.status(201).json({ status, name: target.player_name });
+    } catch (e) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw e;
+    } finally { client.release(); }
+  }));
+
+  app.post('/api/friends/requests/:id/accept', requireAuth, friendLimit((r) => 'fr:' + r.ip), wrap(async (req, res) => {
+    if (!UUID_RE.test(req.params.id)) throw fail(404, 'not_found', 'Solicitud no encontrada.');
+    const cnt = Number((await pool.query(
+      `SELECT count(*) FROM friendships WHERE status = 'accepted' AND (requester_id = $1 OR addressee_id = $1)`, [req.user.id])).rows[0].count);
+    if (cnt >= MAX_FRIENDS) throw fail(409, 'friends_limit', `Llegaste al máximo de ${MAX_FRIENDS} amigos.`);
+    const r = (await pool.query(
+      `UPDATE friendships SET status = 'accepted', responded_at = now() WHERE id = $1 AND addressee_id = $2 AND status = 'pending' RETURNING id`,
+      [req.params.id, req.user.id])).rows[0];
+    if (!r) throw fail(404, 'not_found', 'Solicitud no encontrada.');
+    res.json({ ok: true });
+  }));
+
+  // Rechazar una solicitud recibida, cancelar una enviada o eliminar a un amigo (por id de la relación)
+  app.delete('/api/friends/requests/:id', requireAuth, friendLimit((r) => 'fr:' + r.ip), wrap(async (req, res) => {
+    if (!UUID_RE.test(req.params.id)) throw fail(404, 'not_found', 'Solicitud no encontrada.');
+    const r = (await pool.query(
+      `DELETE FROM friendships WHERE id = $1 AND (requester_id = $2 OR addressee_id = $2) RETURNING id`, [req.params.id, req.user.id])).rows[0];
+    if (!r) throw fail(404, 'not_found', 'No encontrada.');
+    res.json({ ok: true });
+  }));
+  // Eliminar a un amigo por el id de su cuenta
+  app.delete('/api/friends/:userId', requireAuth, friendLimit((r) => 'fr:' + r.ip), wrap(async (req, res) => {
+    if (!UUID_RE.test(req.params.userId)) throw fail(404, 'not_found', 'Amigo no encontrado.');
+    const r = (await pool.query(
+      `DELETE FROM friendships WHERE status = 'accepted' AND ((requester_id = $1 AND addressee_id = $2) OR (requester_id = $2 AND addressee_id = $1)) RETURNING id`,
+      [req.user.id, req.params.userId])).rows[0];
+    if (!r) throw fail(404, 'not_found', 'Amigo no encontrado.');
+    res.json({ ok: true });
+  }));
+
+  /* ---------- Top mundial por tipo de juego (por trofeos de ese juego) ---------- */
+  const CF_GAMES = ['blackjack', 'poker', 'ocho', 'ruleta'];
+  app.get('/api/games/casino-fortuna/top/:game', optionalAuth, wrap(async (req, res) => {
+    const gid = String(req.params.game);
+    if (!CF_GAMES.includes(gid)) throw fail(404, 'not_found', 'Juego no encontrado.');
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 50);
+    const base = `
+      WITH t AS (
+        SELECT p.user_id, p.player_name, p.avatar_custom, a.slug AS avatar_slug,
+          CASE WHEN jsonb_typeof(s.data->'trophies'->$1::text) = 'number'
+               THEN LEAST(GREATEST(floor((s.data->'trophies'->>$1::text)::numeric), 0), 1000000000)::bigint ELSE 0 END AS tr
+        FROM player_profiles p JOIN avatars a ON a.id = p.avatar_id JOIN games g ON g.id = p.game_id
+        JOIN users u ON u.id = p.user_id JOIN game_saves s ON s.profile_id = p.id
+        WHERE g.slug = '${GAME_SLUG}' AND u.status = 'active'
+      ), r AS (SELECT t.*, RANK() OVER (ORDER BY tr DESC) AS pos FROM t WHERE tr > 0)`;
+    const top = (await pool.query(`${base} SELECT * FROM r ORDER BY pos, player_name LIMIT ${limit}`, [gid])).rows;
+    let me = null;
+    if (req.user) {
+      const m = (await pool.query(`${base} SELECT pos, tr FROM r WHERE user_id = $2`, [gid, req.user.id])).rows[0];
+      me = m ? { rank: Number(m.pos), trophies: Number(m.tr) } : { rank: null, trophies: 0 };
+    }
+    res.json({
+      game: gid, me,
+      entries: top.map((r) => ({ rank: Number(r.pos), name: r.player_name, avatar: avatarOut(r, 40000), trophies: Number(r.tr), you: !!req.user && r.user_id === req.user.id })),
+    });
+  }));
 
   app.get('/api/leaderboard/:game', optionalAuth, wrap(async (req, res) => {
     const slug = String(req.params.game);

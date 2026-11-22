@@ -13,4 +13,5 @@ const run = async (f) => { await client.query(await readFile(dir + f, 'utf8')); 
 const hasUsers = (await client.query("SELECT to_regclass('public.users') AS t")).rows[0].t;
 if (!hasUsers) { await run('schema.sql'); await run('seed.sql'); } else console.log('· schema.sql y seed.sql ya estaban aplicados');
 await run('migration-casino-fortuna.sql');
+await run('migration-casino-fortuna-2.sql');
 await client.end();

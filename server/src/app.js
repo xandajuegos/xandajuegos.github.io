@@ -295,9 +295,9 @@ export function createApp(pool, { allowedOrigins = '*', sessionDays = 90, trustP
          RETURNING revision, updated_at`, [p.id, save.data])).rows[0];
 
       // inventario (espejo de lo desbloqueado) y equipado
-      const slugs = [...save.data.characters.unlocked.map((s) => ['character', s]), ...save.data.skins.owned.map((s) => ['skin', s])];
+      const slugs = [...save.data.characters.unlocked.map((s) => ['character', s]), ...save.data.skins.owned.map((s) => ['skin', s]), ...save.data.animations.owned.map((s) => ['animation', s])];
       await client.query(
-        `DELETE FROM inventory i USING items it WHERE i.item_id = it.id AND i.profile_id = $1 AND it.game_id = $2 AND it.item_type IN ('character','skin')`, [p.id, game.id]);
+        `DELETE FROM inventory i USING items it WHERE i.item_id = it.id AND i.profile_id = $1 AND it.game_id = $2 AND it.item_type IN ('character','skin','animation')`, [p.id, game.id]);
       if (slugs.length) {
         await client.query(
           `INSERT INTO inventory (profile_id, item_id)
@@ -307,7 +307,7 @@ export function createApp(pool, { allowedOrigins = '*', sessionDays = 90, trustP
       }
       const sel = save.data.selection?.character;
       const eqSkin = sel && save.data.skins.equipped?.[sel];
-      await client.query(`DELETE FROM equipped_items WHERE profile_id = $1 AND item_type IN ('character','skin')`, [p.id]);
+      await client.query(`DELETE FROM equipped_items WHERE profile_id = $1 AND item_type IN ('character','skin','animation')`, [p.id]);
       if (typeof sel === 'string') {
         await client.query(
           `INSERT INTO equipped_items (profile_id, item_type, item_id)
@@ -317,6 +317,13 @@ export function createApp(pool, { allowedOrigins = '*', sessionDays = 90, trustP
             `INSERT INTO equipped_items (profile_id, item_type, item_id)
              SELECT $1, 'skin', id FROM items WHERE game_id = $2 AND item_type = 'skin' AND slug = $3`, [p.id, game.id, `${sel}:${eqSkin}`]);
         }
+      }
+
+      const eqAnim = save.data.animations.equipped;
+      if (typeof eqAnim === 'string') {
+        await client.query(
+          `INSERT INTO equipped_items (profile_id, item_type, item_id)
+           SELECT $1, 'animation', id FROM items WHERE game_id = $2 AND item_type = 'animation' AND slug = $3`, [p.id, game.id, eqAnim]);
       }
 
       // ranking "Mayor fortuna" = máximo de fichas que ha llegado a tener

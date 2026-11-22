@@ -38,6 +38,8 @@ export function cleanSave(data) {
   const chars = obj(data.characters);
   const skins = obj(data.skins);
   const strs = (v, max = 200) => (Array.isArray(v) ? [...new Set(v.filter((x) => typeof x === 'string' && x.length <= 60))].slice(0, max) : []);
+  const anims = obj(data.animations), avs = obj(data.avatars), spins = obj(data.spins), pass = obj(data.pass);
+  const lvls = (v) => (Array.isArray(v) ? [...new Set(v.map(Number).filter((n) => Number.isInteger(n) && n > 0 && n <= 1000))].slice(0, 1000) : []);
   const clean = {
     ...data,
     coins: int(data.coins),
@@ -47,6 +49,13 @@ export function cleanSave(data) {
     maxTrophies: Object.fromEntries(Object.entries(obj(data.maxTrophies)).slice(0, 20).map(([k, v]) => [k, int(v, 1e9)])),
     characters: { ...chars, unlocked: strs(chars.unlocked, 50) },
     skins: { ...skins, owned: strs(skins.owned, 500), equipped: obj(skins.equipped) },
+    animations: { owned: strs(anims.owned, 100), equipped: typeof anims.equipped === 'string' && anims.equipped.length <= 60 ? anims.equipped : null },
+    avatars: { owned: strs(avs.owned, 100) },
+    spins: { slots: int(spins.slots, 1e6), wheel: int(spins.wheel, 1e6) },
+    pass: {
+      season: typeof pass.season === 'string' ? pass.season.slice(0, 7) : '', wins: int(pass.wins, 1e5), extra: int(pass.extra, 1e3), premium: !!pass.premium,
+      claimed: { free: lvls(obj(pass.claimed).free), premium: lvls(obj(pass.claimed).premium) },
+    },
   };
   delete clean.profile;
   delete clean.settings;

@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import pg from 'pg';
 import { createApp } from './app.js';
+import { attachOnline } from './online.js';
 
 const url = process.env.DATABASE_URL;
 if (!url) { console.error('Falta DATABASE_URL (ver .env.example)'); process.exit(1); }
@@ -13,4 +14,5 @@ const app = createApp(pool, {
   trustProxy: process.env.TRUST_PROXY === '1',
 });
 const port = Number(process.env.PORT) || 3000;
-app.listen(port, () => console.log(`XandA API escuchando en :${port}`));
+const server = app.listen(port, () => console.log(`XandA API escuchando en :${port}`));
+attachOnline(server, { log: (...a) => console.log('[online]', ...a) });

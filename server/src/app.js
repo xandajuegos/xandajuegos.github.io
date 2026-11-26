@@ -505,7 +505,7 @@ export function createApp(pool, { allowedOrigins = '*', sessionDays = 90, trustP
   }));
 
   /* ---------- Top mundial por tipo de juego (por trofeos de ese juego) ---------- */
-  const CF_GAMES = ['blackjack', 'poker', 'ocho', 'ruleta'];
+  const CF_GAMES = ['blackjack', 'poker', 'ocho', 'ruleta', 'dados'];
   app.get('/api/games/casino-fortuna/top/:game', optionalAuth, wrap(async (req, res) => {
     const gid = String(req.params.game);
     if (!CF_GAMES.includes(gid)) throw fail(404, 'not_found', 'Juego no encontrado.');
